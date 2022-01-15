@@ -6,16 +6,18 @@ For example internet radios from: Medion, Hama, Auna, ...
 
 import typing as t
 import logging
+import dataclasses
 from afsapi.exceptions import (
     FSApiException,
     InvalidSessionException,
     OutOfRangeException,
 )
-from afsapi.models import Preset, Equaliser, PlayerMode, PlayControl, PlayState
+from afsapi.models import AdditionalModelInfo, IconInfo, Preset, Equaliser, PlayerMode, PlayControl, PlayState
 from afsapi.utils import unpack_xml, maybe
 from enum import Enum
 import aiohttp
 import xml.etree.ElementTree as ET
+from urllib.parse import urlparse, urlunparse
 
 DataItem = t.Union[str, int]
 
@@ -138,6 +140,74 @@ class AFSAPI:
             except aiohttp.ClientConnectionError:
                 raise ConnectionError(
                     f"Could not connect to {fsapi_device_url}")
+
+    @staticmethod
+    async def get_additional_device_info(
+        fsapi_device_url: str, timeout: int = DEFAULT_TIMEOUT_IN_SECONDS
+    ):
+        """This method tries to retrieve more device info via the UPnP discovery document,
+
+        which is typically located on port 8080 on /dd.xml
+
+        So if the device URL is http://192.168.1.123:80/device, then the additional document is
+        located on http://192.168.1.123:8080/dd.xml
+        """
+
+        url_parts = urlparse(fsapi_device_url)
+        dd_url = urlunparse(
+            ('http', f"{url_parts.hostname}:8080", "/dd.xml", "", "", ""))
+
+        relative_url_prefix = urlunparse(
+            ('http', f"{url_parts.hostname}:8080", "", "", "", ""))
+
+        async with aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(force_close=True),
+            timeout=aiohttp.ClientTimeout(total=timeout),
+        ) as client:
+            try:
+                resp = await client.get(dd_url)
+                doc = ET.fromstring(await resp.text(encoding="utf-8"))
+
+                UPNP_DEVICE_NAMESPACE = {'': "urn:schemas-upnp-org:device-1-0"}
+
+                icons = []
+
+                for icon_node in doc.findall('device/iconList/icon', UPNP_DEVICE_NAMESPACE):
+                    if icon_node.find("url", namespaces=UPNP_DEVICE_NAMESPACE) is not None:
+                        icons.append(IconInfo(
+                            mimetype=icon_node.findtext(
+                                "mimetype", namespaces=UPNP_DEVICE_NAMESPACE),
+                            width=icon_node.findtext(
+                                "width", namespaces=UPNP_DEVICE_NAMESPACE),
+                            height=icon_node.findtext(
+                                "height", namespaces=UPNP_DEVICE_NAMESPACE),
+                            depth=icon_node.findtext(
+                                "depth", namespaces=UPNP_DEVICE_NAMESPACE),
+                            url=relative_url_prefix +
+                            icon_node.findtext(
+                                "url", namespaces=UPNP_DEVICE_NAMESPACE),
+                        ))
+
+                result = {
+                    "icons": icons
+                }
+                for field in dataclasses.fields(AdditionalModelInfo):
+                    if field.name == "icons":
+                        continue
+                    elif field.name == "presentationURL":
+                        result[field.name] = relative_url_prefix + doc.findtext(
+                            f"device/{field.name}", namespaces=UPNP_DEVICE_NAMESPACE)
+                    else:
+                        result[field.name] = doc.findtext(
+                            f"device/{field.name}", namespaces=UPNP_DEVICE_NAMESPACE)
+
+                return AdditionalModelInfo(**result)
+
+            except aiohttp.ServerTimeoutError:
+                raise
+                return None
+            except aiohttp.ClientConnectionError:
+                return None
 
     @staticmethod
     async def create(

@@ -46,3 +46,26 @@ class Preset:
     key: int
     type: str
     name: t.Optional[str]
+
+
+@dataclass
+class IconInfo:
+    mimetype: t.Optional[str]
+    height: int
+    width: int
+    depth: t.Optional[int]
+    url: str
+
+
+@dataclass
+class AdditionalModelInfo:
+    manufacturer: t.Optional[str]
+    manufacturerURL: t.Optional[str]
+    modelDescription: t.Optional[str]
+    modelName: t.Optional[str]
+    modelNumber: t.Optional[str]
+    modelURL: t.Optional[str]
+    serialNumber: t.Optional[str]
+    UDN: t.Optional[str]
+    presentationURL: t.Optional[str]
+    icons: t.List[IconInfo]

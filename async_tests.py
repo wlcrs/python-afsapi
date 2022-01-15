@@ -134,9 +134,18 @@ async def test_play():
         logging.error(traceback.format_exc())
 
 
+async def additional_info():
+    try:
+        print(await AFSAPI.get_additional_device_info(URL))
+    except Exception:
+        logging.error(traceback.format_exc())
+
 loop = asyncio.new_event_loop()
 
-loop.run_until_complete(test_sys())
-loop.run_until_complete(test_volume())
-loop.run_until_complete(test_play())
-loop.run_until_complete(test_info())
+loop.run_until_complete(additional_info())
+
+
+# loop.run_until_complete(test_sys())
+# loop.run_until_complete(test_volume())
+# loop.run_until_complete(test_play())
+# loop.run_until_complete(test_info())
