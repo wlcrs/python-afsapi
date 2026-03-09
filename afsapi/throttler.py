@@ -1,50 +1,46 @@
+"""Rate throttling context manager for controlling request execution frequency."""
+
+from __future__ import annotations
+
 import asyncio
-from contextlib import AbstractAsyncContextManager
 import time
-from typing import Optional, Type, Any
-from types import TracebackType
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 
 class Throttler:
-    """Ensures that a time between executions is taken into account for each wrapped code block,
-    which can be configured for every entry."""
+    """Ensures that a time between executions is taken into account for each wrapped code block.
+
+    This can be configured for every throttle call.
+    """
 
     def __init__(self) -> None:
+        """Initialize the Throttler."""
         self._lock = asyncio.Lock()
-        self._next_execution_not_before: Optional[float] = None
+        self._next_execution_not_before: float | None = None
 
-    class _ThrottleContextManager(AbstractAsyncContextManager[Any]):
-        """Ensures that a time between executions is taken into account for each wrapped code block."""
+    @asynccontextmanager
+    async def throttle(self, throttle_after_call_s: float) -> AsyncGenerator[None, None]:
+        """Create a throttle context manager for rate limiting.
 
-        def __init__(
-            self, throttler: "Throttler", time_after_execution_s: float
-        ) -> None:
-            self.throttler = throttler
-            self.time_after_execution_s = time_after_execution_s
+        Args:
+            throttle_after_call_s: Seconds to wait after exiting the context.
 
-        async def __aenter__(self) -> None:
-            await self.throttler._lock.acquire()
-            if self.throttler._next_execution_not_before is not None:
-                additional_wait = (
-                    self.throttler._next_execution_not_before - time.monotonic()
-                )
+        Yields:
+            None
+
+        """
+        await self._lock.acquire()
+        try:
+            if self._next_execution_not_before is not None:
+                additional_wait = self._next_execution_not_before - time.monotonic()
 
                 if additional_wait > 0:
                     await asyncio.sleep(additional_wait)
-
-            return None
-
-        async def __aexit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exc: Optional[BaseException],
-            tb: Optional[TracebackType],
-        ) -> None:
-            self.throttler._next_execution_not_before = (
-                time.monotonic() + self.time_after_execution_s
-            )
-            self.throttler._lock.release()
-            return None
-
-    def throttle(self, throttle_after_call_s: float) -> _ThrottleContextManager:
-        return Throttler._ThrottleContextManager(self, throttle_after_call_s)
+            yield
+        finally:
+            self._next_execution_not_before = time.monotonic() + throttle_after_call_s
+            self._lock.release()

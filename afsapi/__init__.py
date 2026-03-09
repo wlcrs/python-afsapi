@@ -1,44 +1,47 @@
-from .api import AFSAPI  # noqa
+"""Asynchronous implementation of the Frontier Silicon API."""
+
+from importlib.metadata import PackageNotFoundError, version
+
 from afsapi.exceptions import (
-    FSApiException,
-    InvalidPinException,
-    InvalidSessionException,
-    NotImplementedException,
-    OutOfRangeException,
-    ConnectionError,
+    FSApiError,
+    FSConnectionError,
+    FsNotImplementedError,
+    InvalidPinError,
+    InvalidSessionError,
+    OutOfRangeError,
 )
 from afsapi.models import (
-    Preset,
     Equaliser,
-    PlayerMode,
     PlayControl,
-    PlayState,
+    PlayerMode,
     PlayRepeatMode,
+    PlayState,
+    Preset,
 )
 
-from importlib.metadata import version, PackageNotFoundError
+from .api import AFSAPI
 
 try:
     VERSION = version(__name__)
 except PackageNotFoundError:  # pragma: no cover
     try:
-        from .version import version as VERSION  # noqa
+        from .version import __version__ as VERSION
     except ImportError:  # pragma: no cover
         VERSION = "0.0.0.dev0"
 __version__ = VERSION
 
 __all__ = [
     "AFSAPI",
-    "PlayState",
-    "PlayControl",
-    "PlayerMode",
     "Equaliser",
+    "FSApiError",
+    "FSConnectionError",
+    "FsNotImplementedError",
+    "InvalidPinError",
+    "InvalidSessionError",
+    "OutOfRangeError",
+    "PlayControl",
     "PlayRepeatMode",
+    "PlayState",
+    "PlayerMode",
     "Preset",
-    "FSApiException",
-    "NotImplementedException",
-    "ConnectionError",
-    "OutOfRangeException",
-    "InvalidPinException",
-    "InvalidSessionException",
 ]

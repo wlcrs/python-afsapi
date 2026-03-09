@@ -1,0 +1,10 @@
+"""Constants used in the AFS API."""
+
+MIN_TREBLE = -14
+MAX_TREBLE = 14
+
+MIN_BASS = -14
+MAX_BASS = 14
+
+MIN_PLAY_RATE = -127
+MAX_PLAY_RATE = 127

@@ -53,4 +53,4 @@ src = ["afsapi", "tests"]
 extend-exclude = ["fsapi-tools"]
 
 [tool.ruff.lint]
-select = ["E", "F"]
+select = ["ALL"]
