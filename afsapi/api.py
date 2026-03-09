@@ -8,11 +8,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import typing as t
-import xml.etree.ElementTree as ET
 from asyncio.exceptions import TimeoutError  # noqa: A004
 from enum import Enum
 
 import aiohttp
+from defusedxml import ElementTree
 
 from afsapi.exceptions import (
     FSApiError,
@@ -168,7 +168,7 @@ class AFSAPI:
         ) as client:
             try:
                 resp = await client.get(fsapi_device_url)
-                doc = ET.fromstring(await resp.text(encoding="utf-8"))  # noqa: S314
+                doc = ElementTree.fromstring(await resp.text(encoding="utf-8"))
 
                 api = doc.find("webfsapi")
                 if api is not None and api.text:
@@ -227,7 +227,7 @@ class AFSAPI:
         force_new_session: bool = False,
         retry_with_session: bool = True,
         throttle_wait_after_call: float = TIME_AFTER_READ_CALLS_IN_SECONDS,
-    ) -> ET.Element:
+    ) -> ElementTree.Element:
         """Execute a frontier silicon API call."""
         params: dict[str, DataItem] = {"pin": self.pin}
 
@@ -271,7 +271,7 @@ class AFSAPI:
                     raise FSApiError(
                         msg,
                     )
-                doc = ET.fromstring(await result.text(encoding="utf-8"))
+                doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
                 status = unpack_xml(doc, "status")
 
                 if status in {"FS_OK", "FS_LIST_END"}:
@@ -311,7 +311,7 @@ class AFSAPI:
 
     # Handlers
 
-    async def handle_get(self, item: str) -> ET.Element:
+    async def handle_get(self, item: str) -> ElementTree.Element:
         """Send a GET request for an API item.
 
         Args:
@@ -445,11 +445,11 @@ class AFSAPI:
         """
 
         def _handle_item(
-            item: ET.Element,
+            item: ElementTree.Element,
         ) -> tuple[str, dict[str, DataItem | None]]:
             key = item.attrib["key"]
 
-            def _handle_field(field: ET.Element) -> tuple[str, DataItem | None]:
+            def _handle_field(field: ElementTree.Element) -> tuple[str, DataItem | None]:
                 # TODO: Handle other field types
                 if "name" in field.attrib:
                     name = field.attrib["name"]
@@ -465,7 +465,7 @@ class AFSAPI:
         async def _get_next_items(
             start: int,
             count: int,
-        ) -> tuple[list[ET.Element], bool]:
+        ) -> tuple[list[ElementTree.Element], bool]:
             try:
                 doc = await self.__call(
                     f"LIST_GET_NEXT/{list_name}/{start}",

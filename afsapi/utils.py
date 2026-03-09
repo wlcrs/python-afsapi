@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import typing as t
+from typing import TYPE_CHECKING, Callable, TypeVar
 
-if t.TYPE_CHECKING:
-    import xml.etree.ElementTree as ET
+if TYPE_CHECKING:
+    from defusedxml import ElementTree
 
 
-def unpack_xml(root: ET.Element | None, key: str) -> str | None:
+def unpack_xml(root: ElementTree.Element | None, key: str) -> str | None:
     """Extract text content from an XML element.
 
     Args:
@@ -28,13 +28,13 @@ def unpack_xml(root: ET.Element | None, key: str) -> str | None:
     return None
 
 
-A = t.TypeVar("A")
-B = t.TypeVar("B")
+A = TypeVar("A")
+B = TypeVar("B")
 
 
 def maybe(
     val: A | None,
-    fn: t.Callable[[A], B] | type[B],
+    fn: Callable[[A], B] | type[B],
 ) -> B | None:
     """Apply a function to a value if it is not None.
 
