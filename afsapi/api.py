@@ -43,6 +43,8 @@ DEFAULT_TIMEOUT_IN_SECONDS = 15
 TIME_AFTER_READ_CALLS_IN_SECONDS = 0
 TIME_AFTER_SET_CALLS_IN_SECONDS = 0.3
 TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS = 1.0
+HTTP_STATUS_FORBIDDEN = 403
+HTTP_STATUS_NOT_FOUND = 404
 
 FSApiValueType = Enum("FSApiValueType", "TEXT BOOL INT LONG SIGNED_LONG")
 
@@ -138,6 +140,7 @@ class AFSAPI:
 
         self.__modes = None
         self.__equalisers = None
+        self._http_session: aiohttp.ClientSession | None = None
 
         self._current_nav_path: list[int] = []
 
@@ -168,6 +171,7 @@ class AFSAPI:
         ) as client:
             try:
                 resp = await client.get(fsapi_device_url)
+                resp.raise_for_status()
                 doc = ElementTree.fromstring(await resp.text(encoding="utf-8"))
 
                 api = doc.find("webfsapi")
@@ -186,6 +190,9 @@ class AFSAPI:
             except aiohttp.ClientConnectionError as err:
                 msg = f"Could not connect to {fsapi_device_url}"
                 raise FSConnectionError(msg) from err
+            except aiohttp.ClientResponseError as err:
+                msg = f"Unexpected HTTP response {err.status} while retrieving endpoint from {fsapi_device_url}"
+                raise FSApiError(msg) from err
 
     @staticmethod
     async def create(
@@ -211,6 +218,36 @@ class AFSAPI:
 
         return AFSAPI(webfsapi_endpoint, pin, timeout)
 
+    async def __aenter__(self) -> AFSAPI:  # noqa: PYI034
+        """Enter async context and initialize the shared HTTP session."""
+        await self._get_http_session()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: object,
+    ) -> None:
+        """Exit async context and close the shared HTTP session."""
+        del exc_type, exc, tb
+        await self.close()
+
+    async def close(self) -> None:
+        """Close the shared HTTP session used by this client instance."""
+        if self._http_session is not None and not self._http_session.closed:
+            await self._http_session.close()
+        self._http_session = None
+
+    async def _get_http_session(self) -> aiohttp.ClientSession:
+        """Return a reusable HTTP session, creating it on first use."""
+        if self._http_session is None or self._http_session.closed:
+            self._http_session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(force_close=True),
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            )
+        return self._http_session
+
     # http request helpers
     async def _create_session(self) -> str | None:
         self.sid = None
@@ -219,7 +256,7 @@ class AFSAPI:
             "sessionId",
         )
 
-    async def __call(  # noqa: C901, PLR0912
+    async def __call(  # noqa: C901, PLR0912, PLR0915
         self,
         path: str,
         extra: dict[str, DataItem] | None = None,
@@ -239,73 +276,60 @@ class AFSAPI:
         if extra:
             params.update(**extra)
 
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(force_close=True),
-            timeout=aiohttp.ClientTimeout(total=self.timeout),
-        ) as client:
-            try:
-                async with self.__throttler.throttle(throttle_wait_after_call):
-                    result = await client.get(
-                        f"{self.webfsapi_endpoint}/{path}",
-                        params=params,
-                    )
+        client = await self._get_http_session()
 
-                LOGGER.debug("Called %s with %s: %s", path, params, result.status)
+        try:
+            async with self.__throttler.throttle(throttle_wait_after_call):
+                result = await client.get(
+                    f"{self.webfsapi_endpoint}/{path}",
+                    params=params,
+                )
 
-                if result.status == 403:
-                    msg = "Access denied - incorrect PIN"
-                    raise InvalidPinError(msg)
-                if result.status == 404:
-                    # Bad session ID or service endpoint
-                    LOGGER.warning("Service call failed with 404 to %s/%s", self.webfsapi_endpoint, path)
+            LOGGER.debug("Called %s with %s: %s", path, params, result.status)
+            result.raise_for_status()
 
-                    if not force_new_session and retry_with_session:
-                        # retry command with a forced new session
-                        return await self.__call(path, extra, force_new_session=True)
-                    msg = "Wrong session-id or invalid command"
-                    raise InvalidSessionError(
-                        msg,
-                    )
-                if result.status != 200:
-                    msg = f"Unexpected result {result.status}: {await result.text()}"
-                    raise FSApiError(
-                        msg,
-                    )
-                doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
-                status = unpack_xml(doc, "status")
+            doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
+            status = unpack_xml(doc, "status")
 
-                if status in {"FS_OK", "FS_LIST_END"}:
-                    return doc
-                if status == "FS_NODE_DOES_NOT_EXIST":
-                    msg = f"FSAPI service {path} not implemented at {self.webfsapi_endpoint}."
-                    raise FsNotImplementedError(
-                        msg,
-                    )
-                if status == "FS_NODE_BLOCKED":
-                    msg = "Device is not in the correct mode"
-                    raise FSApiError(msg)
-                if status == "FS_FAIL":
-                    msg = "Command failed. Value is not in range for this command."
-                    raise OutOfRangeError(
-                        msg,
-                    )
-                if status == "FS_PACKET_BAD":
-                    msg = "This command can't be SET"
-                    raise FSApiError(msg)
-
-                LOGGER.error("Unexpected FSAPI status %s", status)
-                msg = f"Unexpected FSAPI status '{status}'"
+            if status in {"FS_OK", "FS_LIST_END"}:
+                return doc
+            if status == "FS_NODE_DOES_NOT_EXIST":
+                msg = f"FSAPI service {path} not implemented at {self.webfsapi_endpoint}."
+                raise FsNotImplementedError(msg)
+            if status == "FS_NODE_BLOCKED":
+                msg = "Device is not in the correct mode"
                 raise FSApiError(msg)
-            except aiohttp.ClientConnectionError as e:
-                msg = f"Could not connect to {self.webfsapi_endpoint}"
-                raise FSConnectionError(msg) from e
-            except TimeoutError as e:
+            if status == "FS_FAIL":
+                msg = "Command failed. Value is not in range for this command."
+                raise OutOfRangeError(msg)
+            if status == "FS_PACKET_BAD":
+                msg = "This command can't be SET"
+                raise FSApiError(msg)
+
+            LOGGER.error("Unexpected FSAPI status %s", status)
+            msg = f"Unexpected FSAPI status '{status}'"
+            raise FSApiError(msg)
+        except aiohttp.ClientResponseError as err:
+            if err.status == HTTP_STATUS_FORBIDDEN:
+                msg = "Access denied - incorrect PIN"
+                raise InvalidPinError(msg) from err
+            if err.status == HTTP_STATUS_NOT_FOUND:
+                LOGGER.warning("Service call failed with 404 to %s/%s", self.webfsapi_endpoint, path)
+
                 if not force_new_session and retry_with_session:
                     return await self.__call(path, extra, force_new_session=True)
-                msg = f"{self.webfsapi_endpoint} did not respond within {self.timeout} seconds"
-                raise FSConnectionError(
-                    msg,
-                ) from e
+                msg = "Wrong session-id or invalid command"
+                raise InvalidSessionError(msg) from err
+            msg = f"Unexpected HTTP response {err.status}"
+            raise FSApiError(msg) from err
+        except aiohttp.ClientConnectionError as err:
+            msg = f"Could not connect to {self.webfsapi_endpoint}"
+            raise FSConnectionError(msg) from err
+        except (aiohttp.ServerTimeoutError, asyncio.TimeoutError, TimeoutError) as err:
+            if not force_new_session and retry_with_session:
+                return await self.__call(path, extra, force_new_session=True)
+            msg = f"{self.webfsapi_endpoint} did not respond within {self.timeout} seconds"
+            raise FSConnectionError(msg) from err
 
     # Helper methods
 
