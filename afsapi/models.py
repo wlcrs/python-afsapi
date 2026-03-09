@@ -4,10 +4,22 @@ from dataclasses import dataclass
 
 
 class PlayState(IntEnum):
-    STOPPED = 0
-    LOADING = 1
+    IDLE = 0
+    BUFFERING = 1
     PLAYING = 2
     PAUSED = 3
+    REBUFFERING = 4
+    ERROR = 5
+    STOPPED = 6
+    ERROR_POPUP = 7
+
+    LOADING = BUFFERING
+
+
+class PlayRepeatMode(IntEnum):
+    OFF = 0
+    REPEAT_ALL = 1
+    REPEAT_ONE = 2
 
 
 class PlayControl(IntEnum):

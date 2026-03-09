@@ -2,7 +2,7 @@ class FSApiException(Exception):
     pass
 
 
-class NotImplementedException(Exception):
+class NotImplementedException(FSApiException):
     pass
 
 

@@ -7,8 +7,16 @@ Asynchronous Python implementation of the Frontier Silicon API
  - https://github.com/tiwilliam/fsapi
  - https://github.com/p2baron/fsapi
 
-Required python libs:
-  - requests
+Runtime dependency:
+    - aiohttp
+
+Development workflow (uv + ruff):
+
+```bash
+uv sync --group dev
+uv run ruff check .
+uv run pytest -q
+```
 
 Usage
 =====

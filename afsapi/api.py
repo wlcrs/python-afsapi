@@ -16,7 +16,14 @@ from afsapi.exceptions import (
     OutOfRangeException,
     ConnectionError,
 )
-from afsapi.models import Preset, Equaliser, PlayerMode, PlayControl, PlayState
+from afsapi.models import (
+    Preset,
+    Equaliser,
+    PlayerMode,
+    PlayControl,
+    PlayState,
+    PlayRepeatMode,
+)
 from afsapi.throttler import Throttler
 from afsapi.utils import unpack_xml, maybe
 from enum import Enum
@@ -63,10 +70,10 @@ API = {
     "equalisers": "netRemote.sys.caps.eqPresets",
     "sleep": "netRemote.sys.sleep",
     # sys.audio
-    "eqpreset": "netRemote.sys.audio.eqpreset",
-    "eqloudness": "netRemote.sys.audio.eqloudness",
-    "bass": "netRemote.sys.audio.eqcustom.param0",
-    "treble": "netRemote.sys.audio.eqcustom.param1",
+    "eqpreset": "netRemote.sys.audio.eqPreset",
+    "eqloudness": "netRemote.sys.audio.eqLoudness",
+    "bass": "netRemote.sys.audio.eqCustom.param0",
+    "treble": "netRemote.sys.audio.eqCustom.param1",
     # volume
     "volume_steps": "netRemote.sys.caps.volumeSteps",
     "volume": "netRemote.sys.audio.volume",
@@ -87,7 +94,7 @@ API = {
     "duration": "netRemote.play.info.duration",
     # nav
     "nav_state": "netRemote.nav.state",
-    "numitems": "netRemote.nav.numitems",
+    "numitems": "netRemote.nav.numItems",
     "nav_list": "netRemote.nav.list",
     "navigate": "netRemote.nav.action.navigate",
     "selectItem": "netRemote.nav.action.selectItem",
@@ -207,7 +214,7 @@ class AFSAPI:
                     raise InvalidPinException("Access denied - incorrect PIN")
                 elif result.status == 404:
                     # Bad session ID or service endpoint
-                    logging.warn(
+                    LOGGER.warning(
                         f"Service call failed with 404 to {self.webfsapi_endpoint}/{path}"
                     )
 
@@ -292,6 +299,14 @@ class AFSAPI:
         item: str,
     ) -> t.Optional[int]:
         val = unpack_xml(await self.handle_get(item), "value/s32")
+        return maybe(val, int)
+
+    async def handle_signed_short(self, item: str) -> t.Optional[int]:
+        val = unpack_xml(await self.handle_get(item), "value/s16")
+        return maybe(val, int)
+
+    async def handle_signed_int(self, item: str) -> t.Optional[int]:
+        val = unpack_xml(await self.handle_get(item), "value/s8")
         return maybe(val, int)
 
     async def handle_list(
@@ -385,6 +400,8 @@ class AFSAPI:
     async def get_power(self) -> t.Optional[bool]:
         """Check if the device is on."""
         power = await self.handle_int(API["power"])
+        if power is None:
+            return None
         return bool(power)
 
     async def set_power(self, value: bool = False) -> t.Optional[bool]:
@@ -394,7 +411,7 @@ class AFSAPI:
             int(value),
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
-        return bool(power)
+        return power
 
     async def get_volume_steps(self) -> t.Optional[int]:
         """Read the maximum volume level of the device."""
@@ -416,17 +433,19 @@ class AFSAPI:
     async def get_mute(self) -> t.Optional[bool]:
         """Check if the device is muted."""
         mute = await self.handle_int(API["mute"])
+        if mute is None:
+            return None
         return bool(mute)
 
     async def set_mute(self, value: bool = False) -> t.Optional[bool]:
         """Mute or unmute the device."""
         mute = await self.handle_set(API["mute"], int(value))
-        return bool(mute)
+        return mute
 
     async def get_play_status(self) -> t.Optional[PlayState]:
         """Get the play status of the device."""
         status = await self.handle_int(API["status"])
-        if status:
+        if status is not None:
             return PlayState(status)
         else:
             return None
@@ -454,7 +473,7 @@ class AFSAPI:
     # Shuffle
     async def get_play_shuffle(self) -> t.Optional[bool]:
         status = await self.handle_int(API["shuffle"])
-        if status:
+        if status is not None:
             return status == 1
         return None
 
@@ -462,14 +481,27 @@ class AFSAPI:
         return await self.handle_set(API["shuffle"], int(value))
 
     # Repeat
-    async def get_play_repeat(self) -> t.Optional[bool]:
+    async def get_play_repeat(self) -> t.Optional[PlayRepeatMode]:
         status = await self.handle_int(API["repeat"])
-        if status:
-            return status == 1
+        if status is not None:
+            return PlayRepeatMode(status)
         return None
 
-    async def play_repeat(self, value: bool) -> t.Optional[bool]:
-        return await self.handle_set(API["repeat"], int(value))
+    async def play_repeat(
+        self, value: t.Union[PlayRepeatMode, bool, int]
+    ) -> t.Optional[bool]:
+        if isinstance(value, PlayRepeatMode):
+            raw_value = int(value)
+        elif isinstance(value, bool):
+            raw_value = int(value)
+        else:
+            raw_value = value
+
+        if raw_value not in (0, 1, 2):
+            raise ValueError(
+                "Repeat mode must be one of 0 (OFF), 1 (REPEAT_ALL), 2 (REPEAT_ONE)"
+            )
+        return await self.handle_set(API["repeat"], raw_value)
 
     async def get_play_duration(self) -> t.Optional[int]:
         """Get the duration of the played media."""
@@ -483,7 +515,7 @@ class AFSAPI:
 
         To find the upper bound for the current track, use `get_play_duration`
         """
-        return await self.handle_int(API["position"])
+        return await self.handle_long(API["position"])
 
     async def set_play_position(self, value: int) -> t.Optional[bool]:
         return await self.handle_set(API["position"], value)
@@ -499,7 +531,7 @@ class AFSAPI:
         * 2 to 127: The track will be fast forwarded, the speed is here also dependable of the value
           The speed of the fast forward is also dependable of the value, 80 is faster than 10
         """
-        return await self.handle_int(API["rate"])
+        return await self.handle_signed_int(API["rate"])
 
     async def set_play_rate(self, value: int) -> t.Optional[bool]:
         if -127 <= value <= 127:
@@ -572,7 +604,7 @@ class AFSAPI:
 
     # Bass and Treble
     async def get_bass(self) -> t.Optional[int]:
-        return await self.handle_int(API["bass"])
+        return await self.handle_signed_short(API["bass"])
 
     async def set_bass(self, value: bool) -> t.Optional[bool]:
         if -14 <= value <= 14:
@@ -581,7 +613,7 @@ class AFSAPI:
             raise ValueError("Outside of bounds: [-14, 14]")
 
     async def get_treble(self) -> t.Optional[int]:
-        return await self.handle_int(API["treble"])
+        return await self.handle_signed_short(API["treble"])
 
     async def set_treble(self, value: bool) -> t.Optional[bool]:
         if -14 <= value <= 14:
@@ -682,7 +714,8 @@ class AFSAPI:
             "0xffffffff",
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
-        self._current_nav_path.pop()
+        if self._current_nav_path:
+            self._current_nav_path.pop()
 
         return result
 

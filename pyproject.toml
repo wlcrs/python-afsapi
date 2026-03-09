@@ -1,21 +1,56 @@
 [build-system]
-requires = [
-    "setuptools >= 48",
-    "setuptools_scm[toml] >= 4, <6",
-    "setuptools_scm_git_archive",
-    "wheel >= 0.29.0",
+requires = ["setuptools>=75", "setuptools-scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "afsapi"
+description = "Asynchronous implementation of the Frontier Silicon API"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "Apache-2.0"
+authors = [{ name = "Krasimir Zhelev", email = "krasimir.zhelev@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = ["aiohttp>=3.9,<4"]
+dynamic = ["version"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
 ]
-build-backend = 'setuptools.build_meta'
+
+[project.urls]
+Homepage = "https://github.com/zhelev/python-afsapi.git"
+
+[dependency-groups]
+dev = ["mypy>=1.11", "pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.6"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["afsapi*"]
 
 [tool.setuptools_scm]
-write_to = "afsapi/version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.mypy]
 strict = true
-files=["afsapi"]
-exclude = [
-    "afsapi/__init__.py"
-]
+files = ["afsapi", "tests"]
+exclude = ["afsapi/__init__.py"]
 
-[pycodestyle]
-max_line_length = 120
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+src = ["afsapi", "tests"]
+extend-exclude = ["fsapi-tools"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
