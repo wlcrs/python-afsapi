@@ -18,6 +18,36 @@ uv run ruff check .
 uv run pytest -q
 ```
 
+Device recording tests (pytest-recording)
+=========================================
+
+The repository includes integration tests that can record and replay real
+responses from the development radio.
+
+- Tests are in `tests/test_device_recordings.py` (read calls) and
+    `tests/test_device_recordings_write.py` (write calls with state restore).
+- Cassettes are stored under `tests/cassettes/`.
+- Device tests replay cassettes by default (`pytest` runs them with no live device access).
+- Live/recording runs require both `AFSAPI_DEVICE_IP` and `AFSAPI_DEVICE_PIN`.
+
+Set device IP + PIN and record fresh cassettes:
+
+```bash
+AFSAPI_DEVICE_IP="192.168.1.183" AFSAPI_DEVICE_PIN="1234" uv run pytest tests/test_device_recordings.py tests/test_device_recordings_write.py --run-device-tests --record-mode=once -q
+```
+
+Re-record all cassettes:
+
+```bash
+AFSAPI_DEVICE_IP="192.168.1.183" AFSAPI_DEVICE_PIN="1234" uv run pytest tests/test_device_recordings.py tests/test_device_recordings_write.py --run-device-tests --record-mode=all -q
+```
+
+Run default tests without touching the device:
+
+```bash
+uv run pytest -q
+```
+
 Usage
 =====
 

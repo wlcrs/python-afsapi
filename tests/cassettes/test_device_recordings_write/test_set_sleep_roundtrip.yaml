@@ -1,0 +1,202 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/GET/netRemote.sys.sleep?pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <value><u32>0</u32></value>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '84'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/SET/netRemote.sys.sleep?pin=PIN&value=10
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '56'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/GET/netRemote.sys.sleep?pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <value><u32>9</u32></value>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '84'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/SET/netRemote.sys.sleep?pin=PIN&value=0
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '56'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/GET/netRemote.sys.sleep?pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <value><u32>0</u32></value>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '84'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/SET/netRemote.sys.sleep?pin=PIN&value=10
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '56'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/GET/netRemote.sys.sleep?pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <value><u32>9</u32></value>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '84'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/SET/netRemote.sys.sleep?pin=PIN&value=0
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '56'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,0 +1,28 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/GET/netRemote.sys.sleep?pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <value><u32>0</u32></value>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '84'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+version: 1

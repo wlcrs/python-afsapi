@@ -1,0 +1,148 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/LIST_GET_NEXT/netRemote.sys.caps.validModes/-1?maxItems=50&pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <item key="0">
+
+        <field name="id"><c8_array>IR</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>Internetradio</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="1">
+
+        <field name="id"><c8_array>Spotify</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>Spotify</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="2">
+
+        <field name="id"><c8_array>DMR</c8_array></field>
+
+        <field name="selectable"><u8>0</u8></field>
+
+        <field name="label"><c8_array>Local Music</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="3">
+
+        <field name="id"><c8_array>MP</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>Muziekspeler</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="4">
+
+        <field name="id"><c8_array>DAB</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>DAB</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="5">
+
+        <field name="id"><c8_array>FM</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>FM</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="6">
+
+        <field name="id"><c8_array>Bluetooth</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>Bluetooth</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <item key="7">
+
+        <field name="id"><c8_array>AUXIN</c8_array></field>
+
+        <field name="selectable"><u8>1</u8></field>
+
+        <field name="label"><c8_array>AUX (extra ingang)</c8_array></field>
+
+        <field name="streamable"><u8>0</u8></field>
+
+        <field name="modetype"><u8>0</u8></field>
+
+
+        </item>
+
+        <listend/>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '2183'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -28,7 +28,13 @@ classifiers = [
 Homepage = "https://github.com/zhelev/python-afsapi.git"
 
 [dependency-groups]
-dev = ["mypy>=1.11", "pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.6"]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-recording>=0.13.4",
+    "ruff>=0.6",
+]
 
 [tool.setuptools]
 include-package-data = true
@@ -40,6 +46,7 @@ include = ["afsapi*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["device: integration tests against a real Frontier Silicon device"]
 
 [tool.mypy]
 strict = true

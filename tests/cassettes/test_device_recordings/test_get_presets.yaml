@@ -1,0 +1,414 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/GET/netRemote.nav.state?pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <value><u8>1</u8></value>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '82'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: GET
+    uri: http://192.168.1.183/fsapi/LIST_GET_NEXT/netRemote.nav.presets/-1?maxItems=50&pin=PIN
+  response:
+    body:
+      string: '<fsapiResponse>
+
+        <status>FS_OK</status>
+
+        <item key="0">
+
+        <field name="name"><c8_array>VRT Klara       </c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="1">
+
+        <field name="name"><c8_array>VRT NWS         </c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="2">
+
+        <field name="name"><c8_array>VRT StuBru      </c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="3">
+
+        <field name="name"><c8_array>VRT De Tijdloze </c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="4">
+
+        <field name="name"><c8_array>VRT Continuo    </c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="5">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="6">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="7">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="8">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="9">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="10">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="11">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="12">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="13">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="14">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="15">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="16">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="17">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="18">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="19">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="20">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="21">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="22">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="23">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="24">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="25">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="26">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="27">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="28">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="29">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="30">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="31">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="32">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="33">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="34">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="35">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="36">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="37">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="38">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <item key="39">
+
+        <field name="name"><c8_array></c8_array></field>
+
+        <field name="type"><c8_array></c8_array></field>
+
+
+        </item>
+
+        <listend/>
+
+        </fsapiResponse>
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Content-Length:
+      - '5057'
+      Content-Type:
+      - text/xml
+    status:
+      code: 200
+      message: OK
+version: 1
