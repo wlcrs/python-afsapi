@@ -9,7 +9,6 @@ import asyncio
 import logging
 import typing as t
 from asyncio.exceptions import TimeoutError  # noqa: A004
-from enum import Enum
 
 import aiohttp
 from defusedxml import ElementTree
@@ -17,7 +16,6 @@ from defusedxml import ElementTree
 from afsapi.exceptions import (
     FSApiError,
     FSConnectionError,
-    FsNotImplementedError,
     InvalidPinError,
     InvalidSessionError,
     OutOfRangeError,
@@ -30,12 +28,25 @@ from afsapi.models import (
     PlayState,
     Preset,
 )
+from afsapi.nodes import (
+    Endpoint,
+    ListEndpoint,
+    Nodes,
+)
+from afsapi.response import (
+    FSAPIStatus,
+    extract_item_fields,
+    extract_item_key,
+    extract_list_items,
+    extract_text,
+    parse_status,
+)
 from afsapi.throttler import Throttler
-from afsapi.utils import maybe, unpack_xml
+from afsapi.utils import maybe
 
 from .const import MAX_BASS, MAX_PLAY_RATE, MAX_TREBLE, MIN_BASS, MIN_PLAY_RATE, MIN_TREBLE
 
-DataItem = t.Union[str, int]
+_T = t.TypeVar("_T")
 
 
 DEFAULT_TIMEOUT_IN_SECONDS = 15
@@ -46,67 +57,10 @@ TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS = 1.0
 HTTP_STATUS_FORBIDDEN = 403
 HTTP_STATUS_NOT_FOUND = 404
 
-FSApiValueType = Enum("FSApiValueType", "TEXT BOOL INT LONG SIGNED_LONG")
-
-VALUE_TYPE_TO_XML_PATH = {
-    FSApiValueType.TEXT: "c8_array",
-    FSApiValueType.INT: "u8",
-    FSApiValueType.LONG: "u32",
-    FSApiValueType.SIGNED_LONG: "s32",
-}
-
-READ_ONLY = False
-READ_WRITE = True
-
-# implemented API calls
-API = {
-    # sys
-    "power": "netRemote.sys.power",
-    "mode": "netRemote.sys.mode",
-    "wired_mac": "netRemote.sys.net.wired.macAddress",
-    "wired_active": "netRemote.sys.net.wired.interfaceEnable",
-    "wlan_mac": "netRemote.sys.net.wlan.macAddress",
-    "wlan_active": "netRemote.sys.net.wlan.interfaceEnable",
-    "rssi": "netRemote.sys.net.wlan.rssi",
-    # sys.info
-    "friendly_name": "netRemote.sys.info.friendlyName",
-    "radio_id": "netRemote.sys.info.radioId",
-    "version": "netRemote.sys.info.version",
-    # sys.caps
-    "valid_modes": "netRemote.sys.caps.validModes",
-    "equalisers": "netRemote.sys.caps.eqPresets",
-    "sleep": "netRemote.sys.sleep",
-    # sys.audio
-    "eqpreset": "netRemote.sys.audio.eqPreset",
-    "eqloudness": "netRemote.sys.audio.eqLoudness",
-    "bass": "netRemote.sys.audio.eqCustom.param0",
-    "treble": "netRemote.sys.audio.eqCustom.param1",
-    # volume
-    "volume_steps": "netRemote.sys.caps.volumeSteps",
-    "volume": "netRemote.sys.audio.volume",
-    "mute": "netRemote.sys.audio.mute",
-    # play
-    "status": "netRemote.play.status",
-    "name": "netRemote.play.info.name",
-    "control": "netRemote.play.control",
-    "shuffle": "netRemote.play.shuffle",
-    "repeat": "netRemote.play.repeat",
-    "position": "netRemote.play.position",
-    "rate": "netRemote.play.rate",
-    # info
-    "text": "netRemote.play.info.text",
-    "artist": "netRemote.play.info.artist",
-    "album": "netRemote.play.info.album",
-    "graphic_uri": "netRemote.play.info.graphicUri",
-    "duration": "netRemote.play.info.duration",
-    # nav
-    "nav_state": "netRemote.nav.state",
-    "numitems": "netRemote.nav.numItems",
-    "nav_list": "netRemote.nav.list",
-    "navigate": "netRemote.nav.action.navigate",
-    "selectItem": "netRemote.nav.action.selectItem",
-    "presets": "netRemote.nav.presets",
-    "selectPreset": "netRemote.nav.action.selectPreset",
+# Backward-compatible path lookup dict.
+# New code should use typed ``Nodes.*`` attributes + ``AFSAPI.get()`` instead.
+API: dict[str, str] = {
+    name: endpoint.path for name, endpoint in vars(Nodes).items() if isinstance(endpoint, (Endpoint, ListEndpoint))
 }
 
 LOGGER = logging.getLogger(__name__)
@@ -248,25 +202,68 @@ class AFSAPI:
             )
         return self._http_session
 
-    # http request helpers
+    # Generic typed endpoint access
+
+    @t.overload
+    async def get(self, endpoint: Endpoint[_T]) -> _T | None: ...
+
+    @t.overload
+    async def get(self, endpoint: ListEndpoint[_T]) -> list[tuple[str, _T]]: ...
+
+    async def get(
+        self,
+        endpoint: Endpoint[_T] | ListEndpoint[_T],
+    ) -> _T | list[tuple[str, _T]] | None:
+        """Fetch the current value of a typed FSAPI endpoint.
+
+        For scalar endpoints the return type is inferred from the endpoint
+        descriptor (``Endpoint[int]`` → ``int | None``, ``Endpoint[str]``
+        → ``str | None``).  For list endpoints the method collects all items
+        and returns a ``list[tuple[str, T]]``.
+
+        Args:
+            endpoint: A typed endpoint descriptor from :class:`Nodes`.
+
+        Returns:
+            The parsed value for scalar endpoints, a collected list of
+            ``(key, item_dict)`` tuples for list endpoints, or ``None``
+            when the device returns no value.
+
+        Example::
+
+            name = await api.get(Nodes.friendly_name)   # str | None
+            vol  = await api.get(Nodes.volume)           # int | None
+            eqs  = await api.get(Nodes.equalisers)       # list[…]
+
+        """
+        if isinstance(endpoint, ListEndpoint):
+            return [(key, item) async for key, item in self.handle_list(endpoint.path)]
+        doc = await self.handle_get(endpoint.path)
+        val = extract_text(doc, "value", endpoint.xml_tag)
+        if val is None:
+            return None
+        if endpoint.is_string_type:
+            return val  # type: ignore[return-value]
+        return maybe(val, int)  # type: ignore[return-value]
+
     async def _create_session(self) -> str | None:
         self.sid = None
-        return unpack_xml(
+        return extract_text(
             await self.__call("CREATE_SESSION", retry_with_session=False),
             "sessionId",
         )
 
-    async def __call(  # noqa: C901, PLR0912, PLR0915
+    async def __call(  # noqa: C901
         self,
         path: str,
-        extra: dict[str, DataItem] | None = None,
+        extra: dict[str, str | int] | None = None,
         *,
         force_new_session: bool = False,
         retry_with_session: bool = True,
         throttle_wait_after_call: float = TIME_AFTER_READ_CALLS_IN_SECONDS,
     ) -> ElementTree.Element:
         """Execute a frontier silicon API call."""
-        params: dict[str, DataItem] = {"pin": self.pin}
+        params: dict[str, str | int] = {"pin": self.pin}
 
         if force_new_session:
             self.sid = await self._create_session()
@@ -289,26 +286,15 @@ class AFSAPI:
             result.raise_for_status()
 
             doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
-            status = unpack_xml(doc, "status")
+            status = parse_status(doc)
 
-            if status in {"FS_OK", "FS_LIST_END"}:
+            if status.is_success:
                 return doc
-            if status == "FS_NODE_DOES_NOT_EXIST":
-                msg = f"FSAPI service {path} not implemented at {self.webfsapi_endpoint}."
-                raise FsNotImplementedError(msg)
-            if status == "FS_NODE_BLOCKED":
-                msg = "Device is not in the correct mode"
-                raise FSApiError(msg)
-            if status == "FS_FAIL":
-                msg = "Command failed. Value is not in range for this command."
-                raise OutOfRangeError(msg)
-            if status == "FS_PACKET_BAD":
-                msg = "This command can't be SET"
-                raise FSApiError(msg)
 
-            LOGGER.error("Unexpected FSAPI status %s", status)
-            msg = f"Unexpected FSAPI status '{status}'"
-            raise FSApiError(msg)
+            # Map FSAPI status to exception
+            exception = status.to_exception()
+            if exception:
+                raise exception
         except aiohttp.ClientResponseError as err:
             if err.status == HTTP_STATUS_FORBIDDEN:
                 msg = "Access denied - incorrect PIN"
@@ -347,16 +333,16 @@ class AFSAPI:
         """
         return await self.__call(f"GET/{item}")
 
-    async def handle_set(
+    async def set(
         self,
-        item: str,
-        value: t.Any,  # noqa: ANN401
+        endpoint: Endpoint[_T],
+        value: _T,
         throttle_wait_after_call: float = TIME_AFTER_SET_CALLS_IN_SECONDS,
     ) -> bool | None:
-        """Send a SET request for an API item.
+        """Set the value of a typed FSAPI endpoint.
 
         Args:
-            item: The API item path.
+            endpoint: A scalar endpoint descriptor from :class:`Nodes`.
             value: The value to set.
             throttle_wait_after_call: Throttle delay after the call.
 
@@ -364,132 +350,100 @@ class AFSAPI:
             True if successful, False if failed, None if no response.
 
         """
-        status = unpack_xml(
-            await self.__call(
-                f"SET/{item}",
-                {"value": value},
-                throttle_wait_after_call=throttle_wait_after_call,
-            ),
-            "status",
+        response = await self.__call(
+            f"SET/{endpoint.path}",
+            {"value": value},
+            throttle_wait_after_call=throttle_wait_after_call,
         )
-        return maybe(status, lambda x: x == "FS_OK")
-
-    async def handle_text(self, item: str) -> str | None:
-        """Extract and return text content from an API response.
-
-        Args:
-            item: The API item path.
-
-        Returns:
-            The text content, or None if not found.
-
-        """
-        return unpack_xml(await self.handle_get(item), "value/c8_array")
-
-    async def handle_int(self, item: str) -> int | None:
-        """Extract and return an unsigned 8-bit integer from an API response.
-
-        Args:
-            item: The API item path.
-
-        Returns:
-            The integer value, or None if not found.
-
-        """
-        val = unpack_xml(await self.handle_get(item), "value/u8")
-        return maybe(val, int)
-
-    async def handle_long(self, item: str) -> int | None:
-        """Extract and return an unsigned 32-bit integer from an API response.
-
-        Args:
-            item: The API item path.
-
-        Returns:
-            The integer value, or None if not found.
-
-        """
-        val = unpack_xml(await self.handle_get(item), "value/u32")
-        return maybe(val, int)
-
-    async def handle_signed_long(
-        self,
-        item: str,
-    ) -> int | None:
-        """Extract and return a signed 32-bit integer from an API response.
-
-        Args:
-            item: The API item path.
-
-        Returns:
-            The integer value, or None if not found.
-
-        """
-        val = unpack_xml(await self.handle_get(item), "value/s32")
-        return maybe(val, int)
-
-    async def handle_signed_short(self, item: str) -> int | None:
-        """Extract and return a signed 16-bit integer from an API response.
-
-        Args:
-            item: The API item path.
-
-        Returns:
-            The integer value, or None if not found.
-
-        """
-        val = unpack_xml(await self.handle_get(item), "value/s16")
-        return maybe(val, int)
-
-    async def handle_signed_int(self, item: str) -> int | None:
-        """Extract and return a signed 8-bit integer from an API response.
-
-        Args:
-            item: The API item path.
-
-        Returns:
-            The integer value, or None if not found.
-
-        """
-        val = unpack_xml(await self.handle_get(item), "value/s8")
-        return maybe(val, int)
+        status = parse_status(response)
+        return status == FSAPIStatus.FS_OK
 
     async def handle_list(  # noqa: C901
         self,
         list_name: str,
-    ) -> t.AsyncIterable[tuple[str, dict[str, DataItem | None]]]:
+    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
         """Iterate over a list from the API, yielding items with their fields.
 
         Args:
             list_name: The API list path.
 
         Yields:
-            Tuples of (item_key, field_dict) for each item in the list.
+            Tuples of (item_key, field_dict) where field values are strings or ints.
+
+        Note:
+            For properly typed responses, prefer using specific methods like
+            get_equalisers(), get_modes(), get_presets(), or nav_list()
+            which return structured data types.
 
         """
 
+        def _parse_field_value(tag: str, value: str) -> str | int | None:
+            """Parse field value based on XML tag type.
+
+            Supports all FSAPI field types from fsapi-tools:
+            - c8_array: String (char array)
+            - array: Generic array (string)
+            - u8, u16, u32: Unsigned integers
+            - s8, s16, s32: Signed integers
+            - e8: Enum value (as integer)
+
+            Args:
+                tag: The XML tag name (e.g., 'c8_array', 'u8', 's16').
+                value: The text value to parse.
+
+            Returns:
+                Parsed value as appropriate type, or None if conversion fails.
+
+            """
+            # Normalize tag by removing _array suffix for comparison
+            normalized_tag = tag.replace("_array", "").lower()
+
+            # String types - return as-is
+            if normalized_tag in {"c8", "array"}:
+                return value
+
+            # Integer types - convert to int or return None
+            if normalized_tag in {"u8", "u16", "u32", "s8", "s16", "s32", "e8"}:
+                return maybe(value, int)
+
+            # Unknown type - return as string
+            return value
+
         def _handle_item(
             item: ElementTree.Element,
-        ) -> tuple[str, dict[str, DataItem | None]]:
-            key = item.attrib["key"]
+        ) -> tuple[str, dict[str, str | int | None]]:
+            """Extract key and fields from a list item element.
 
-            def _handle_field(field: ElementTree.Element) -> tuple[str, DataItem | None]:
-                # TODO: Handle other field types
-                if "name" in field.attrib:
-                    name = field.attrib["name"]
-                    s = unpack_xml(field, "c8_array")
-                    v = maybe(unpack_xml(field, "u8"), int)
-                    return (name, s or v)
-                msg = "Invalid field"
-                raise ValueError(msg)
+            Args:
+                item: The item element from the list response.
 
-            value = dict(map(_handle_field, item.findall("field")))
-            return key, value
+            Returns:
+                Tuple of (key_str, field_dict) with parsed field values.
+
+            """
+            key = extract_item_key(item, default=-1)
+            fields = extract_item_fields(item)
+
+            value = {}
+            for name, (tag, text) in fields.items():
+                value[name] = _parse_field_value(tag, text)
+
+            return str(key), value
 
         async def _get_next_items(
             start: int,
             count: int,
         ) -> tuple[list[ElementTree.Element], bool]:
+            """Fetch next batch of items from the list.
+
+            Args:
+                start: Starting position in the list.
+                count: Number of items to retrieve.
+
+            Returns:
+                Tuple of (item_elements, has_reached_end).
+
+            """
             try:
                 doc = await self.__call(
                     f"LIST_GET_NEXT/{list_name}/{start}",
@@ -497,10 +451,14 @@ class AFSAPI:
                 )
             except OutOfRangeError:
                 return [], True
-            else:
-                if doc and unpack_xml(doc, "status") == "FS_OK":
-                    return doc.findall("item"), doc.find("listend") is not None
-                return [], True
+
+            status = parse_status(doc)
+            if status == FSAPIStatus.FS_OK:
+                items = extract_list_items(doc)
+                has_ended = doc.find("listend") is not None
+                return items, has_ended
+
+            return [], True
 
         start = -1
         count = 50  # asking for more items gives a bigger chance on FS_NODE_BLOCKED errors on subsequent requests
@@ -520,26 +478,26 @@ class AFSAPI:
     # sys
     async def get_friendly_name(self) -> str | None:
         """Get the friendly name of the device."""
-        return await self.handle_text(API["friendly_name"])
+        return await self.get(Nodes.friendly_name)
 
     async def set_friendly_name(self, value: str) -> bool | None:
         """Set the friendly name of the device."""
-        return await self.handle_set(API["friendly_name"], value)
+        return await self.set(Nodes.friendly_name, value)
 
     async def get_version(self) -> str | None:
         """Get the friendly name of the device."""
-        return await self.handle_text(API["version"])
+        return await self.get(Nodes.version)
 
     async def get_radio_id(self) -> str | None:
         """Get the friendly name of the device."""
-        return await self.handle_text(API["radio_id"])
+        return await self.get(Nodes.radio_id)
 
     async def get_mac(self) -> str | None:
         """Get the MAC address of the device."""
-        on_wlan = await self.handle_int(API["wlan_active"])
+        on_wlan = await self.get(Nodes.wlan_active)
         if bool(on_wlan):
-            return await self.handle_text(API["wlan_mac"])
-        return await self.handle_text(API["wired_mac"])
+            return await self.get(Nodes.wlan_mac)
+        return await self.get(Nodes.wired_mac)
 
     async def get_rssi(self) -> int | None:
         """Get the current wlan Received Signal Strength Indication in dBm."""
@@ -547,14 +505,14 @@ class AFSAPI:
         # -80dBm (0%) and -20dBm (100%).  100% indicates a wired
         # connection.  This functions returns the dBm value of RSSI.
 
-        rssi = await self.handle_int(API["rssi"])
+        rssi = await self.get(Nodes.rssi)
         if rssi is not None:
             return round(rssi * 0.6 - 80)
         return None
 
     async def get_power(self) -> bool | None:
         """Check if the device is on."""
-        power = await self.handle_int(API["power"])
+        power = await self.get(Nodes.power)
         if power is None:
             return None
         return bool(power)
@@ -564,8 +522,8 @@ class AFSAPI:
         value: bool = False,  # noqa: FBT001, FBT002
     ) -> bool | None:
         """Power on or off the device."""
-        return await self.handle_set(
-            API["power"],
+        return await self.set(
+            Nodes.power,
             int(value),
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
@@ -573,23 +531,23 @@ class AFSAPI:
     async def get_volume_steps(self) -> int | None:
         """Read the maximum volume level of the device."""
         if not self.__volume_steps:
-            self.__volume_steps = await self.handle_int(API["volume_steps"])
+            self.__volume_steps = await self.get(Nodes.volume_steps)
 
         return self.__volume_steps
 
     # Volume
     async def get_volume(self) -> int | None:
         """Read the volume level of the device."""
-        return await self.handle_int(API["volume"])
+        return await self.get(Nodes.volume)
 
     async def set_volume(self, value: int) -> bool | None:
         """Set the volume level of the device."""
-        return await self.handle_set(API["volume"], value)
+        return await self.set(Nodes.volume, value)
 
     # Mute
     async def get_mute(self) -> bool | None:
         """Check if the device is muted."""
-        mute = await self.handle_int(API["mute"])
+        mute = await self.get(Nodes.mute)
         if mute is None:
             return None
         return bool(mute)
@@ -599,34 +557,34 @@ class AFSAPI:
         value: bool = False,  # noqa: FBT001, FBT002
     ) -> bool | None:
         """Mute or unmute the device."""
-        return await self.handle_set(API["mute"], int(value))
+        return await self.set(Nodes.mute, int(value))
 
     async def get_play_status(self) -> PlayState | None:
         """Get the play status of the device."""
-        status = await self.handle_int(API["status"])
+        status = await self.get(Nodes.status)
         if status is not None:
             return PlayState(status)
         return None
 
     async def get_play_name(self) -> str | None:
         """Get the name of the played item."""
-        return await self.handle_text(API["name"])
+        return await self.get(Nodes.name)
 
     async def get_play_text(self) -> str | None:
         """Get the text associated with the played media."""
-        return await self.handle_text(API["text"])
+        return await self.get(Nodes.text)
 
     async def get_play_artist(self) -> str | None:
         """Get the artists of the current media(song)."""
-        return await self.handle_text(API["artist"])
+        return await self.get(Nodes.artist)
 
     async def get_play_album(self) -> str | None:
         """Get the songs's album."""
-        return await self.handle_text(API["album"])
+        return await self.get(Nodes.album)
 
     async def get_play_graphic(self) -> str | None:
         """Get the album art associated with the song/album/artist."""
-        return await self.handle_text(API["graphic_uri"])
+        return await self.get(Nodes.graphic_uri)
 
     # Shuffle
     async def get_play_shuffle(self) -> bool | None:
@@ -636,7 +594,7 @@ class AFSAPI:
             True if shuffle is enabled, False if disabled, None if unavailable.
 
         """
-        status = await self.handle_int(API["shuffle"])
+        status = await self.get(Nodes.shuffle)
         if status is not None:
             return status == 1
         return None
@@ -654,7 +612,7 @@ class AFSAPI:
             True if successful, False if failed, None if unavailable.
 
         """
-        return await self.handle_set(API["shuffle"], int(value))
+        return await self.set(Nodes.shuffle, int(value))
 
     # Repeat
     async def get_play_repeat(self) -> PlayRepeatMode | None:
@@ -664,7 +622,7 @@ class AFSAPI:
             The repeat mode (OFF=0, REPEAT_ALL=1, REPEAT_ONE=2), or None if unavailable.
 
         """
-        status = await self.handle_int(API["repeat"])
+        status = await self.get(Nodes.repeat)
         if status is not None:
             return PlayRepeatMode(status)
         return None
@@ -692,11 +650,11 @@ class AFSAPI:
             raise ValueError(
                 msg,
             )
-        return await self.handle_set(API["repeat"], raw_value)
+        return await self.set(Nodes.repeat, raw_value)
 
     async def get_play_duration(self) -> int | None:
         """Get the duration of the played media."""
-        return await self.handle_long(API["duration"])
+        return await self.get(Nodes.duration)
 
     async def get_play_position(self) -> int | None:
         """Get the current playback position in milliseconds.
@@ -710,7 +668,7 @@ class AFSAPI:
             The current position in milliseconds, or None if unavailable.
 
         """
-        return await self.handle_long(API["position"])
+        return await self.get(Nodes.position)
 
     async def set_play_position(self, value: int) -> bool | None:
         """Set the playback position.
@@ -722,7 +680,7 @@ class AFSAPI:
             True if successful, False if failed, None if unavailable.
 
         """
-        return await self.handle_set(API["position"], value)
+        return await self.set(Nodes.position, value)
 
     async def get_play_rate(self) -> int | None:
         """Get the current playback rate.
@@ -735,7 +693,7 @@ class AFSAPI:
             The playback rate in the range -127 to 127, or None if unavailable.
 
         """
-        return await self.handle_signed_int(API["rate"])
+        return await self.get(Nodes.rate)
 
     async def set_play_rate(self, value: int) -> bool | None:
         """Set the playback rate.
@@ -754,7 +712,7 @@ class AFSAPI:
             msg = f"Play rate must be within values {MIN_PLAY_RATE} to {MAX_PLAY_RATE}"
             raise ValueError(msg)
 
-        return await self.handle_set(API["rate"], value)
+        return await self.set(Nodes.rate, value)
 
     # play controls
 
@@ -763,7 +721,7 @@ class AFSAPI:
 
         1=Play; 2=Pause; 3=Next; 4=Previous (song/station)
         """
-        return await self.handle_set(API["control"], int(value))
+        return await self.set(Nodes.control, int(value))
 
     async def play(self) -> bool | None:
         """Play media."""
@@ -785,9 +743,8 @@ class AFSAPI:
         """Get the equaliser modes supported by this device."""
         # Cache as this never changes
         if self.__equalisers is None:
-            self.__equalisers = [
-                Equaliser(key=key, **eqinfo) async for key, eqinfo in self.handle_list(API["equalisers"])
-            ]
+            equalisers = await self.get(Nodes.equalisers)
+            self.__equalisers = [Equaliser(key=key, **eqinfo) for key, eqinfo in equalisers]
 
         return self.__equalisers
 
@@ -802,7 +759,7 @@ class AFSAPI:
             FSApiException: If the preset index is not found in the equaliser list.
 
         """
-        v = await self.handle_int(API["eqpreset"])
+        v = await self.get(Nodes.eqpreset)
         if v is None:
             return None
 
@@ -823,8 +780,8 @@ class AFSAPI:
             True if successful, False if failed, None if unavailable.
 
         """
-        return await self.handle_set(
-            API["eqpreset"],
+        return await self.set(
+            Nodes.eqpreset,
             int(value.key) if isinstance(value, Equaliser) else value,
         )
 
@@ -838,7 +795,7 @@ class AFSAPI:
             True if loudness is enabled, False otherwise.
 
         """
-        return bool(await self.handle_int(API["eqloudness"]))
+        return bool(await self.get(Nodes.eqloudness))
 
     async def set_eq_loudness(
         self,
@@ -855,7 +812,7 @@ class AFSAPI:
             True if successful, False if failed, None if unavailable.
 
         """
-        return await self.handle_set(API["eqloudness"], int(value))
+        return await self.set(Nodes.eqloudness, int(value))
 
     # Bass and Treble
     async def get_bass(self) -> int | None:
@@ -865,7 +822,7 @@ class AFSAPI:
             The bass level in range -14 to 14, or None if unavailable.
 
         """
-        return await self.handle_signed_short(API["bass"])
+        return await self.get(Nodes.bass)
 
     async def set_bass(self, value: int) -> bool | None:
         """Set the bass level.
@@ -883,7 +840,7 @@ class AFSAPI:
         if not (MIN_BASS <= value <= MAX_BASS):
             msg = f"Outside of bounds: [{MIN_BASS}, {MAX_BASS}]"
             raise ValueError(msg)
-        return await self.handle_set(API["bass"], int(value))
+        return await self.set(Nodes.bass, int(value))
 
     async def get_treble(self) -> int | None:
         """Get the current treble level.
@@ -892,7 +849,7 @@ class AFSAPI:
             The treble level in range -14 to 14, or None if unavailable.
 
         """
-        return await self.handle_signed_short(API["treble"])
+        return await self.get(Nodes.treble)
 
     async def set_treble(self, value: int) -> bool | None:
         """Set the treble level.
@@ -911,13 +868,13 @@ class AFSAPI:
             msg = f"Outside of bounds: [{MIN_TREBLE}, {MAX_TREBLE}]"
             raise ValueError(msg)
 
-        return await self.handle_set(API["treble"], int(value))
+        return await self.set(Nodes.treble, int(value))
 
     # Mode
     async def _get_modes(
         self,
-    ) -> t.AsyncIterable[tuple[str, dict[str, DataItem | None]]]:
-        async for mode in self.handle_list(API["valid_modes"]):
+    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
+        for mode in await self.get(Nodes.valid_modes):
             yield mode
 
     async def get_modes(self) -> list[PlayerMode]:
@@ -930,7 +887,7 @@ class AFSAPI:
 
     async def get_mode(self) -> PlayerMode | None:
         """Get the currently active mode on the device (DAB, FM, Spotify)."""
-        int_mode = await self.handle_long(API["mode"])
+        int_mode = await self.get(Nodes.mode)
         if int_mode is None:
             return None
 
@@ -943,9 +900,10 @@ class AFSAPI:
 
     async def set_mode(self, value: PlayerMode | str) -> bool | None:
         """Set the currently active mode on the device (DAB, FM, Spotify)."""
-        result = await self.handle_set(
-            API["mode"],
-            value.key if isinstance(value, PlayerMode) else value,
+        mode_value = int(value.key) if isinstance(value, PlayerMode) else int(value)
+        result = await self.set(
+            Nodes.mode,
+            mode_value,
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
         self._current_nav_path = []
@@ -954,20 +912,20 @@ class AFSAPI:
     # Sleep
     async def get_sleep(self) -> int | None:
         """Check when and if the device is going to sleep."""
-        return await self.handle_long(API["sleep"])
+        return await self.get(Nodes.sleep)
 
     async def set_sleep(self, value: int = 0) -> bool | None:
         """Set device sleep timer."""
-        return await self.handle_set(API["sleep"], int(value))
+        return await self.set(Nodes.sleep, int(value))
 
     # Folder navigation
 
     async def _enable_nav_if_necessary(self) -> None:
         """Enable navigation mode if the device is not already in it."""
-        nav_state = await self.handle_int(API["nav_state"])
+        nav_state = await self.get(Nodes.nav_state)
         if nav_state != 1:
-            await self.handle_set(
-                API["nav_state"],
+            await self.set(
+                Nodes.nav_state,
                 1,
                 throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
                 # changing to navigation can be very slow!
@@ -984,11 +942,11 @@ class AFSAPI:
 
         """
         await self._enable_nav_if_necessary()
-        return await self.handle_signed_long(API["numitems"])
+        return await self.get(Nodes.numitems)
 
     async def nav_list(
         self,
-    ) -> t.AsyncIterable[tuple[str, dict[str, DataItem | None]]]:
+    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
         """List items in the current navigation path.
 
         Yields:
@@ -996,7 +954,8 @@ class AFSAPI:
 
         """
         await self._enable_nav_if_necessary()
-        return self.handle_list(API["nav_list"])
+        for item in await self.get(Nodes.nav_list):
+            yield item
 
     async def nav_select_folder(self, value: int) -> bool | None:
         """Navigate into a folder.
@@ -1009,8 +968,8 @@ class AFSAPI:
 
         """
         await self._enable_nav_if_necessary()
-        result = await self.handle_set(
-            API["navigate"],
+        result = await self.set(
+            Nodes.navigate,
             value,
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
@@ -1026,9 +985,9 @@ class AFSAPI:
 
         """
         await self._enable_nav_if_necessary()
-        result = await self.handle_set(
-            API["navigate"],
-            "0xffffffff",
+        result = await self.set(
+            Nodes.navigate,
+            0xFFFFFFFF,
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
         if self._current_nav_path:
@@ -1047,8 +1006,8 @@ class AFSAPI:
 
         """
         await self._enable_nav_if_necessary()
-        return await self.handle_set(
-            API["selectItem"],
+        return await self.set(
+            Nodes.select_item,
             value,
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )
@@ -1061,7 +1020,7 @@ class AFSAPI:
 
         """
         self._current_nav_path = []
-        return await self.handle_set(API["nav_state"], 0)
+        return await self.set(Nodes.nav_state, 0)
 
     async def nav_select_folder_via_path(self, path: list[int]) -> bool | None:
         """Navigates to a target folder from the current folder in as litte steps as necessary."""
@@ -1105,14 +1064,14 @@ class AFSAPI:
 
     async def _get_presets(
         self,
-    ) -> t.AsyncIterable[tuple[str, dict[str, DataItem | None]]]:
+    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
         """Iterate over presets with names.
 
         Internal method that yields only presets that have a name field.
         """
         await self._enable_nav_if_necessary()
 
-        async for key, preset in self.handle_list(API["presets"]):
+        for key, preset in await self.get(Nodes.presets):
             if preset.get("name"):
                 # Strip whitespaces from names
                 if not isinstance(preset["name"], str):
@@ -1130,7 +1089,7 @@ class AFSAPI:
 
         def _to_preset(
             key: str,
-            preset_fields: dict[str, DataItem | None],
+            preset_fields: dict[str, str | int | None],
         ) -> Preset:
             if not isinstance(preset_fields["name"], str):
                 msg = f"Invalid type for preset name: {type(preset_fields['name'])}. Expected str."
@@ -1143,8 +1102,8 @@ class AFSAPI:
     async def select_preset(self, value: Preset | int) -> bool | None:
         """Select a preset by its key."""
         await self._enable_nav_if_necessary()
-        return await self.handle_set(
-            API["selectPreset"],
+        return await self.set(
+            Nodes.select_preset,
             value.key if isinstance(value, Preset) else value,
             throttle_wait_after_call=TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS,
         )

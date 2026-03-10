@@ -18,26 +18,33 @@ from afsapi.models import (
     PlayState,
     Preset,
 )
+from afsapi.nodes import (
+    Endpoint,
+    ListEndpoint,
+    Nodes,
+)
 
 from .api import AFSAPI
 
 try:
-    VERSION = version(__name__)
+    __version__ = version(__name__)
 except PackageNotFoundError:  # pragma: no cover
     try:
-        from .version import __version__ as VERSION
+        from .version import __version__
     except ImportError:  # pragma: no cover
-        VERSION = "0.0.0.dev0"
-__version__ = VERSION
+        __version__ = "0.0.0.dev0"
 
 __all__ = [
     "AFSAPI",
+    "Endpoint",
     "Equaliser",
     "FSApiError",
     "FSConnectionError",
     "FsNotImplementedError",
     "InvalidPinError",
     "InvalidSessionError",
+    "ListEndpoint",
+    "Nodes",
     "OutOfRangeError",
     "PlayControl",
     "PlayRepeatMode",
