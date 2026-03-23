@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
+from typing import TYPE_CHECKING
 
-from afsapi.api import AFSAPI
-from afsapi.models import Equaliser, PlayerMode, Preset
-from afsapi.models import PlayState
+import pytest
+from afsapi.models import Equaliser, PlayerMode, PlayState, Preset
+
+if TYPE_CHECKING:
+    from afsapi.api import AFSAPI
 
 pytestmark = [
     pytest.mark.asyncio,

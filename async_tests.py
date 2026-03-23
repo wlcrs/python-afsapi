@@ -1,9 +1,12 @@
 """Test of the asynchronous Frontier Silicon interface."""
+
 import asyncio
-import traceback
 import logging
+import traceback
 
 from afsapi import AFSAPI
+
+logger = logging.getLogger(__name__)
 
 URL = "http://192.168.1.183:80/device"
 PIN = 1234
@@ -15,27 +18,17 @@ async def test_sys() -> None:
     try:
         afsapi = await AFSAPI.create(URL, PIN, TIMEOUT)
 
-        print(f"Set power succeeded? - {await afsapi.set_power(True)}")
-        print(f"Power on: {await afsapi.get_power()}")
-        print(f"Friendly name: {await afsapi.get_friendly_name()}")
-        for mode in await afsapi.get_modes():
-            print(f"Available Mode: {mode}")
-        print(f"Current Mode: {await afsapi.get_mode()}")
+        for _mode in await afsapi.get_modes():
+            pass
 
-        for equaliser in await afsapi.get_equalisers():
-            print(f"Equaliser: {equaliser}")
+        for _equaliser in await afsapi.get_equalisers():
+            pass
 
-        print(f"EQ Preset: {await afsapi.get_eq_preset()}")
+        for _preset in await afsapi.get_presets():
+            pass
 
-        for preset in await afsapi.get_presets():
-            print(f"Preset: {preset}")
-
-        print(f"Set power succeeded? - {await afsapi.set_power(False)}")
-        print(f"Set sleep succeeded? - {await afsapi.set_sleep(10)}")
-        print(f"Sleep: {await afsapi.get_sleep()}")
-        print(f"Get power {await afsapi.get_power()}")
     except Exception:
-        logging.error(traceback.format_exc())
+        logger.exception(traceback.format_exc())
 
 
 async def test_volume() -> None:
@@ -43,31 +36,23 @@ async def test_volume() -> None:
     try:
         afsapi = await AFSAPI.create(URL, PIN, TIMEOUT)
 
-        set_power = await afsapi.set_power(True)
-        print("Set power succeeded? - %s" % set_power)
+        await afsapi.set_power(True)
 
-        power = await afsapi.get_power()
-        print("Power on: %s" % power)
+        await afsapi.get_power()
 
-        volume = await afsapi.get_volume()
-        print("Volume: %s" % volume)
+        await afsapi.get_volume()
 
-        set_volume = await afsapi.set_volume(3)
-        print("Set volume succeeded? - %s" % set_volume)
+        await afsapi.set_volume(3)
 
-        volume_steps = await afsapi.get_volume_steps()
-        print("Volume steps: % s" % volume_steps)
+        await afsapi.get_volume_steps()
 
-        mute = await afsapi.get_mute()
-        print("Is muted: %s" % mute)
+        await afsapi.get_mute()
 
-        power = await afsapi.set_power(False)
-        print("Set power succeeded? - %s" % set_power)
+        await afsapi.set_power(False)
 
-        power = await afsapi.get_power()
-        print("Power on: %s" % power)
+        await afsapi.get_power()
     except Exception:
-        logging.error(traceback.format_exc())
+        logger.exception(traceback.format_exc())
 
 
 async def test_info() -> None:
@@ -75,42 +60,29 @@ async def test_info() -> None:
     try:
         afsapi = await AFSAPI.create(URL, PIN, TIMEOUT)
 
-        set_power = await afsapi.set_power(True)
-        print("Set power succeeded? - %s" % set_power)
+        await afsapi.set_power(True)
+
+        await afsapi.get_power()
+
+        await afsapi.get_play_name()
+
+        await afsapi.get_play_text()
+
+        await afsapi.get_play_artist()
+
+        await afsapi.get_play_album()
+
+        await afsapi.get_play_graphic()
+
+        await afsapi.get_play_duration()
+
+        power = await afsapi.set_power(False)
+        print(f"Set power succeeded? - {power}")
 
         power = await afsapi.get_power()
-        print("Power on: %s" % power)
-
-        print(f"Radio ID: {await afsapi.get_radio_id()}")
-        print(f"Version: {await afsapi.get_version()}")
-        print(f"MAC: {await afsapi.get_mac()}")
-        print(f"RSSI: {await afsapi.get_rssi()} dBm")
-
-        name = await afsapi.get_play_name()
-        print("Name: %s" % name)
-
-        text = await afsapi.get_play_text()
-        print("Text: %s" % text)
-
-        artist = await afsapi.get_play_artist()
-        print("Artist: %s" % artist)
-
-        album = await afsapi.get_play_album()
-        print("Album: %s" % album)
-
-        graphic = await afsapi.get_play_graphic()
-        print("Graphic: %s" % graphic)
-
-        duration = await afsapi.get_play_duration()
-        print("Duration: %s" % duration)
-
-        # power = await afsapi.set_power(False)
-        # print('Set power succeeded? - %s' % set_power)
-
-        # power = await afsapi.get_power()
-        # print('Power on: %s' % power)
+        print(f"Power on: {power}")
     except Exception:
-        logging.error(traceback.format_exc())
+        logger.exception(traceback.format_exc())
 
 
 async def test_play() -> None:
@@ -118,22 +90,18 @@ async def test_play() -> None:
     try:
         afsapi = await AFSAPI.create(URL, PIN, TIMEOUT)
 
-        status = await afsapi.get_play_status()
-        print("Status: %s" % status)
+        await afsapi.get_play_status()
 
-        start_play = await afsapi.play()
-        print("Start play succeeded? - %s" % start_play)
+        await afsapi.play()
         await asyncio.sleep(1)
 
-        forward = await afsapi.forward()
-        print("Next succeeded? - %s" % forward)
+        await afsapi.forward()
         await asyncio.sleep(1)
 
-        rewind = await afsapi.rewind()
-        print("Prev succeeded? - %s" % rewind)
+        await afsapi.rewind()
 
     except Exception:
-        logging.error(traceback.format_exc())
+        logger.exception(traceback.format_exc())
 
 
 loop = asyncio.new_event_loop()

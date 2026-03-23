@@ -32,6 +32,7 @@ class PlayRepeatMode(IntEnum):
 class PlayControl(IntEnum):
     """Enumeration of playback control commands."""
 
+    STOP = 0
     PLAY = 1
     PAUSE = 2
     NEXT = 3
@@ -50,17 +51,22 @@ class PlayerMode:
 
     id: str
     label: str
-    key: str
+    key: int
     selectable: int | None = None
     streamable: int | None = None
-    modetype: int | None = None
+    modeType: int | None = None  # noqa: N815 reflects API field name
+
+    @property
+    def modetype(self) -> int | None:  # for backwards compatibility
+        """Alias for modeType field."""
+        return self.modeType
 
 
 @dataclass
 class Equaliser:
     """Information about an equaliser preset supported by the device."""
 
-    key: str
+    key: int
     label: str
 
 

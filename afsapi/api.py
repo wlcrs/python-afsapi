@@ -32,6 +32,7 @@ from afsapi.nodes import (
     Endpoint,
     ListEndpoint,
     Nodes,
+    ValidModesListItem,
 )
 from afsapi.response import (
     FSAPIStatus,
@@ -46,7 +47,11 @@ from afsapi.utils import maybe
 
 from .const import MAX_BASS, MAX_PLAY_RATE, MAX_TREBLE, MIN_BASS, MIN_PLAY_RATE, MIN_TREBLE
 
+if t.TYPE_CHECKING:
+    from xml.etree import ElementTree as ET
+
 _T = t.TypeVar("_T")
+V = t.TypeVar("V", bound=str | int)
 
 
 DEFAULT_TIMEOUT_IN_SECONDS = 15
@@ -261,7 +266,7 @@ class AFSAPI:
         force_new_session: bool = False,
         retry_with_session: bool = True,
         throttle_wait_after_call: float = TIME_AFTER_READ_CALLS_IN_SECONDS,
-    ) -> ElementTree.Element:
+    ) -> ET.Element:
         """Execute a frontier silicon API call."""
         params: dict[str, str | int] = {"pin": self.pin}
 
@@ -285,16 +290,6 @@ class AFSAPI:
             LOGGER.debug("Called %s with %s: %s", path, params, result.status)
             result.raise_for_status()
 
-            doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
-            status = parse_status(doc)
-
-            if status.is_success:
-                return doc
-
-            # Map FSAPI status to exception
-            exception = status.to_exception()
-            if exception:
-                raise exception
         except aiohttp.ClientResponseError as err:
             if err.status == HTTP_STATUS_FORBIDDEN:
                 msg = "Access denied - incorrect PIN"
@@ -317,11 +312,15 @@ class AFSAPI:
             msg = f"{self.webfsapi_endpoint} did not respond within {self.timeout} seconds"
             raise FSConnectionError(msg) from err
 
+        doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
+        parse_status(doc).raise_for_status()
+        return doc
+
     # Helper methods
 
     # Handlers
 
-    async def handle_get(self, item: str) -> ElementTree.Element:
+    async def handle_get(self, item: str) -> ET.Element:
         """Send a GET request for an API item.
 
         Args:
@@ -335,10 +334,10 @@ class AFSAPI:
 
     async def set(
         self,
-        endpoint: Endpoint[_T],
-        value: _T,
+        endpoint: Endpoint[V],
+        value: V,
         throttle_wait_after_call: float = TIME_AFTER_SET_CALLS_IN_SECONDS,
-    ) -> bool | None:
+    ) -> bool:
         """Set the value of a typed FSAPI endpoint.
 
         Args:
@@ -410,7 +409,7 @@ class AFSAPI:
             return value
 
         def _handle_item(
-            item: ElementTree.Element,
+            item: ET.Element,
         ) -> tuple[str, dict[str, str | int | None]]:
             """Extract key and fields from a list item element.
 
@@ -433,7 +432,7 @@ class AFSAPI:
         async def _get_next_items(
             start: int,
             count: int,
-        ) -> tuple[list[ElementTree.Element], bool]:
+        ) -> tuple[list[ET.Element], bool]:
             """Fetch next batch of items from the list.
 
             Args:
@@ -723,6 +722,10 @@ class AFSAPI:
         """
         return await self.set(Nodes.control, int(value))
 
+    async def stop(self) -> bool | None:
+        """Stop playing."""
+        return await self.play_control(PlayControl.STOP)
+
     async def play(self) -> bool | None:
         """Play media."""
         return await self.play_control(PlayControl.PLAY)
@@ -744,7 +747,7 @@ class AFSAPI:
         # Cache as this never changes
         if self.__equalisers is None:
             equalisers = await self.get(Nodes.equalisers)
-            self.__equalisers = [Equaliser(key=key, **eqinfo) for key, eqinfo in equalisers]
+            self.__equalisers = [Equaliser(**eqinfo) for _, eqinfo in equalisers]
 
         return self.__equalisers
 
@@ -871,9 +874,7 @@ class AFSAPI:
         return await self.set(Nodes.treble, int(value))
 
     # Mode
-    async def _get_modes(
-        self,
-    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
+    async def _get_modes(self) -> t.AsyncIterable[tuple[str, ValidModesListItem]]:
         for mode in await self.get(Nodes.valid_modes):
             yield mode
 
@@ -881,7 +882,7 @@ class AFSAPI:
         """Get the modes supported by this device."""
         # Cache as this never changes
         if self.__modes is None:
-            self.__modes = [PlayerMode(key=k, **v) async for k, v in self._get_modes()]
+            self.__modes = [PlayerMode(**v) async for k, v in self._get_modes()]
 
         return self.__modes
 

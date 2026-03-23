@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 import pytest
-import pytest_asyncio
-
 from afsapi.api import AFSAPI
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 DEFAULT_DEVICE_IP = "192.168.1.183"
 
@@ -78,8 +79,8 @@ def vcr_config() -> dict[str, object]:
     }
 
 
-@pytest_asyncio.fixture
-async def device_api(device_pin: str, device_ip: str) -> Iterable[AFSAPI]:
+@pytest.fixture
+async def device_api(device_pin: str, device_ip: str) -> AsyncGenerator[AFSAPI]:
     """Yield an initialized API client bound to the development device."""
     api = AFSAPI(f"http://{device_ip}/fsapi", device_pin)
     try:

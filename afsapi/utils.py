@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, TypeVar
 
 if TYPE_CHECKING:
-    from defusedxml import ElementTree
+    from xml.etree.ElementTree import Element
 
 
-def unpack_xml(root: ElementTree.Element | None, key: str) -> str | None:
+def unpack_xml(root: Element | None, key: str) -> str | None:
     """Extract text content from an XML element.
 
     Args:
@@ -34,7 +34,7 @@ B = TypeVar("B")
 
 def maybe(
     val: A | None,
-    fn: Callable[[A], B] | type[B],
+    fn: Callable[[A], B],
 ) -> B | None:
     """Apply a function to a value if it is not None.
 
@@ -47,5 +47,5 @@ def maybe(
 
     """
     if val is not None:
-        return fn(val)  # type: ignore[call-arg]
+        return fn(val)
     return None

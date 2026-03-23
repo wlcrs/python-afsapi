@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 if t.TYPE_CHECKING:
-    from defusedxml import ElementTree
+    from xml.etree import ElementTree as ET
 
 from afsapi.exceptions import (
     FSApiError,
@@ -55,7 +55,7 @@ class FSAPIStatus(Enum):
         """
         return self in {FSAPIStatus.FS_OK, FSAPIStatus.FS_LIST_END}
 
-    def to_exception(self) -> FSApiError | None:
+    def to_exception(self) -> FSApiError:
         """Convert non-success status to corresponding exception.
 
         Returns:
@@ -63,7 +63,8 @@ class FSAPIStatus(Enum):
 
         """
         if self.is_success:
-            return None
+            msg = "Cannot convert successful status to exception"
+            raise ValueError(msg)
 
         if self == FSAPIStatus.FS_NODE_DOES_NOT_EXIST:
             msg = "FSAPI service not implemented on this device."
@@ -80,6 +81,11 @@ class FSAPIStatus(Enum):
 
         msg = f"Unexpected FSAPI status '{self.value}'"
         return FSApiError(msg)
+
+    def raise_for_status(self) -> None:
+        """Raise an exception if status indicates failure."""
+        if not self.is_success:
+            raise self.to_exception()
 
 
 @dataclass(frozen=True)
@@ -110,7 +116,7 @@ class FSAPIResponse:
 
 
 def parse_status(
-    root: ElementTree.Element | None,
+    root: ET.Element | None,
 ) -> FSAPIStatus:
     """Extract and parse FSAPI status from XML response.
 
@@ -136,7 +142,7 @@ def parse_status(
 
 
 def parse_response(
-    root: ElementTree.Element | None,
+    root: ET.Element | None,
 ) -> FSAPIResponse:
     """Parse complete FSAPI XML response.
 
@@ -156,17 +162,13 @@ def parse_response(
 
     """
     status = parse_status(root)
-
-    if not status.is_success:
-        exception = status.to_exception()
-        if exception:
-            raise exception
+    status.raise_for_status()
 
     return FSAPIResponse(status=status, data=root)
 
 
 def extract_text(
-    root: ElementTree.Element | None,
+    root: ET.Element | None,
     *path: str,
 ) -> str | None:
     """Extract text from nested XML element.
@@ -201,9 +203,7 @@ def extract_text(
     return text or None
 
 
-def extract_list_items(
-    root: ElementTree.Element | None,
-) -> list[ElementTree.Element]:
+def extract_list_items(root: ET.Element | None) -> list[ET.Element]:
     """Extract all item elements from list response.
 
     Args:
@@ -219,10 +219,7 @@ def extract_list_items(
     return root.findall("item")
 
 
-def extract_item_key(
-    item: ElementTree.Element,
-    default: int = -1,
-) -> int:
+def extract_item_key(item: ET.Element, default: int = -1) -> int:
     """Extract key attribute from list item element.
 
     Args:
@@ -243,9 +240,7 @@ def extract_item_key(
         return default
 
 
-def extract_item_fields(
-    item: ElementTree.Element,
-) -> dict[str, tuple[str, str]]:
+def extract_item_fields(item: ET.Element) -> dict[str, tuple[str, str]]:
     """Extract all field elements from list item.
 
     Parses field elements and returns a mapping of field names to

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
+from typing import TYPE_CHECKING
 
-from afsapi.api import AFSAPI
+import pytest
 from afsapi.exceptions import OutOfRangeError
+
+if TYPE_CHECKING:
+    from afsapi.api import AFSAPI
 
 pytestmark = [
     pytest.mark.asyncio,
