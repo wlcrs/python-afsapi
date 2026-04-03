@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "setuptools >= 48",
-    "setuptools_scm[toml] >= 4, <6",
+    "setuptools_scm[toml]",
     "setuptools_scm_git_archive",
     "wheel >= 0.29.0",
 ]
@@ -12,10 +12,8 @@ write_to = "afsapi/version.py"
 
 [tool.mypy]
 strict = true
-files=["afsapi"]
-exclude = [
-    "afsapi/__init__.py"
-]
+files = ["afsapi"]
+exclude = ["afsapi/__init__.py"]
 
 [pycodestyle]
 max_line_length = 120
