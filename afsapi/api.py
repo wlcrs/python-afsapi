@@ -222,7 +222,9 @@ class AFSAPI:
                     raise FSApiException(
                         f"Unexpected result {result.status}: {await result.text()}"
                     )
-                doc = ET.fromstring(await result.text(encoding="utf-8", errors="replace"))
+                doc = ET.fromstring(
+                    await result.text(encoding="utf-8", errors="replace")
+                )
                 status = unpack_xml(doc, "status")
 
                 if status == "FS_OK" or status == "FS_LIST_END":
@@ -517,10 +519,10 @@ class AFSAPI:
         """
         return await self.handle_set(API["control"], int(value))
 
-    async def stop(self) -> t.Optional[bool]:
+    async def stop_start(self) -> t.Optional[bool]:
         """Stop (and Start) media."""
-        return await self.play_control(PlayControl.STOP)
-    
+        return await self.play_control(PlayControl.STOP_START)
+
     async def play(self) -> t.Optional[bool]:
         """Play media."""
         return await self.play_control(PlayControl.PLAY)

@@ -17,7 +17,9 @@ class PlayState(IntEnum):
 
 
 class PlayControl(IntEnum):
-    STOP = 0
+    STOP_START = 0
+    """Only valid in Internet Radio mode. Toggles between play and stop."""
+
     PLAY = 1
     PAUSE = 2
     NEXT = 3
@@ -27,7 +29,7 @@ class PlayControl(IntEnum):
     """
     PREV = 4
     """
-    Media Player: prvious item in playlist (wraps around to end of playlist)
+    Media Player: previous item in playlist (wraps around to end of playlist)
     Radio: Next available radio on lower frequency
     """
 
