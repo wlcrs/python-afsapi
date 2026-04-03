@@ -70,8 +70,6 @@ API: dict[str, str] = {
 
 LOGGER = logging.getLogger(__name__)
 
-# pylint: disable=R0904
-
 
 class AFSAPI:
     """Builds the interface to a Frontier Silicon device."""
@@ -131,7 +129,7 @@ class AFSAPI:
             try:
                 resp = await client.get(fsapi_device_url)
                 resp.raise_for_status()
-                doc = ElementTree.fromstring(await resp.text(encoding="utf-8"))
+                doc = ElementTree.fromstring(await resp.text(encoding="utf-8", errors="replace"))
 
                 api = doc.find("webfsapi")
                 if api is not None and api.text:
@@ -313,7 +311,7 @@ class AFSAPI:
             msg = f"{self.webfsapi_endpoint} did not respond within {self.timeout} seconds"
             raise FSConnectionError(msg) from err
 
-        doc = ElementTree.fromstring(await result.text(encoding="utf-8"))
+        doc = ElementTree.fromstring(await result.text(encoding="utf-8", errors="replace"))
         parse_status(doc).raise_for_status()
         return doc
 
