@@ -54,12 +54,7 @@ class PlayerMode:
     key: int
     selectable: int | None = None
     streamable: int | None = None
-    modeType: int | None = None  # noqa: N815 reflects API field name
-
-    @property
-    def modetype(self) -> int | None:  # for backwards compatibility
-        """Alias for modeType field."""
-        return self.modeType
+    modetype: int | None = None
 
 
 @dataclass

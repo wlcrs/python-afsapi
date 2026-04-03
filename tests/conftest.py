@@ -6,6 +6,7 @@ import os
 from typing import TYPE_CHECKING
 
 import pytest
+import pytest_asyncio
 from afsapi.api import AFSAPI
 
 if TYPE_CHECKING:
@@ -79,7 +80,7 @@ def vcr_config() -> dict[str, object]:
     }
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def device_api(device_pin: str, device_ip: str) -> AsyncGenerator[AFSAPI]:
     """Yield an initialized API client bound to the development device."""
     api = AFSAPI(f"http://{device_ip}/fsapi", device_pin)

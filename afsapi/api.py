@@ -242,7 +242,8 @@ class AFSAPI:
 
         """
         if isinstance(endpoint, ListEndpoint):
-            return [(key, item) async for key, item in self.handle_list(endpoint.path)]
+            items = [(key, item) async for key, item in self.handle_list(endpoint.path)]
+            return t.cast("list[tuple[str, _T]]", items)
         doc = await self.handle_get(endpoint.path)
         val = extract_text(doc, "value", endpoint.xml_tag)
         if val is None:
@@ -747,7 +748,7 @@ class AFSAPI:
         # Cache as this never changes
         if self.__equalisers is None:
             equalisers = await self.get(Nodes.equalisers)
-            self.__equalisers = [Equaliser(**eqinfo) for _, eqinfo in equalisers]
+            self.__equalisers = [Equaliser(key=key, **eqinfo) for key, eqinfo in equalisers]
 
         return self.__equalisers
 
@@ -882,7 +883,7 @@ class AFSAPI:
         """Get the modes supported by this device."""
         # Cache as this never changes
         if self.__modes is None:
-            self.__modes = [PlayerMode(**v) async for k, v in self._get_modes()]
+            self.__modes = [PlayerMode(key=k, **v) async for k, v in self._get_modes()]
 
         return self.__modes
 
