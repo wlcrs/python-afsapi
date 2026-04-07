@@ -13,9 +13,10 @@ from enum import Enum
 if t.TYPE_CHECKING:
     from xml.etree import ElementTree as ET
 
-from afsapi.exceptions import (
+from .exceptions import (
     FSApiError,
-    FsNotImplementedError,
+    FSNodeBlockedError,
+    FSNotImplementedError,
     OutOfRangeError,
 )
 
@@ -68,10 +69,10 @@ class FSAPIStatus(Enum):
 
         if self == FSAPIStatus.FS_NODE_DOES_NOT_EXIST:
             msg = "FSAPI service not implemented on this device."
-            return FsNotImplementedError(msg)
+            return FSNotImplementedError(msg)
         if self == FSAPIStatus.FS_NODE_BLOCKED:
             msg = "Device is not in the correct mode"
-            return FSApiError(msg)
+            return FSNodeBlockedError(msg)
         if self == FSAPIStatus.FS_FAIL:
             msg = "Command failed. Value is not in range for this command."
             return OutOfRangeError(msg)

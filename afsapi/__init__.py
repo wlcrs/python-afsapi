@@ -2,29 +2,29 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from afsapi.exceptions import (
+from .api import AFSAPI
+from .exceptions import (
     FSApiError,
     FSConnectionError,
-    FsNotImplementedError,
+    FSNotImplementedError,
     InvalidPinError,
     InvalidSessionError,
     OutOfRangeError,
 )
-from afsapi.models import (
+from .models import (
     Equaliser,
+    PlayCaps,
     PlayControl,
     PlayerMode,
     PlayRepeatMode,
     PlayState,
     Preset,
 )
-from afsapi.nodes import (
+from .nodes import (
     Endpoint,
     ListEndpoint,
     Nodes,
 )
-
-from .api import AFSAPI
 
 try:
     __version__ = version(__name__)
@@ -40,12 +40,13 @@ __all__ = [
     "Equaliser",
     "FSApiError",
     "FSConnectionError",
-    "FsNotImplementedError",
+    "FSNotImplementedError",
     "InvalidPinError",
     "InvalidSessionError",
     "ListEndpoint",
     "Nodes",
     "OutOfRangeError",
+    "PlayCaps",
     "PlayControl",
     "PlayRepeatMode",
     "PlayState",

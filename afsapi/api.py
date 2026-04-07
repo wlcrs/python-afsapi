@@ -16,12 +16,14 @@ from defusedxml import ElementTree
 from afsapi.exceptions import (
     FSApiError,
     FSConnectionError,
+    FSNodeBlockedError,
     InvalidPinError,
     InvalidSessionError,
     OutOfRangeError,
 )
 from afsapi.models import (
     Equaliser,
+    PlayCaps,
     PlayControl,
     PlayerMode,
     PlayRepeatMode,
@@ -562,6 +564,13 @@ class AFSAPI:
         status = await self.get(Nodes.status)
         if status is not None:
             return PlayState(status)
+        return None
+
+    async def get_play_caps(self) -> PlayCaps | None:
+        """Get the supported play control capabilities of the device."""
+        caps = await self.get(Nodes.caps)
+        if caps is not None:
+            return PlayCaps(caps)
         return None
 
     async def get_play_name(self) -> str | None:

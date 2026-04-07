@@ -182,6 +182,7 @@ class Nodes:
     mute: Endpoint[int] = Endpoint("netRemote.sys.audio.mute", "u8")
 
     # --- play --------------------------------------------------------------
+    caps: Endpoint[int] = Endpoint("netRemote.play.caps", "u32")
     status: Endpoint[int] = Endpoint("netRemote.play.status", "u8")
     name: Endpoint[str] = Endpoint("netRemote.play.info.name", "c8_array")
     control: Endpoint[int] = Endpoint("netRemote.play.control", "u8")

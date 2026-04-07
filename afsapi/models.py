@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag, auto
 
 
 class PlayState(IntEnum):
@@ -27,6 +27,31 @@ class PlayRepeatMode(IntEnum):
     OFF = 0
     REPEAT_ALL = 1
     REPEAT_ONE = 2
+
+
+class PlayCaps(IntFlag):
+    """Bitmask of supported playback control commands.
+
+    Returned by netRemote.play.caps endpoint.
+    """
+
+    Pause = auto()
+    Stop = auto()
+    SkipNext = auto()
+    SkipPrevious = auto()
+    FastForward = auto()
+    Rewind = auto()
+    Shuffle = auto()
+    Repeat = auto()
+    Seek = auto()
+    ApplyFeedback = auto()
+    Scrobbling = auto()
+    AddPreset = auto()
+    ThumbsUp = auto()
+    ThumbsDown = auto()
+    SkipForward = auto()
+    SkipBackward = auto()
+    RepeatOne = auto()
 
 
 class PlayControl(IntEnum):

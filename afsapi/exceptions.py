@@ -5,7 +5,11 @@ class FSApiError(Exception):
     """Base exception for all Frontier Silicon API errors."""
 
 
-class FsNotImplementedError(FSApiError):
+class FSNodeBlockedError(FSApiError):
+    """Exception raised when the device responds with FS_NODE_BLOCKED error."""
+
+
+class FSNotImplementedError(FSApiError):
     """Exception raised when an API operation is not implemented."""
 
 
