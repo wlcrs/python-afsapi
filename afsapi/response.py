@@ -191,11 +191,16 @@ def extract_text(
     if root is None:
         return None
 
-    current = root
+    current: ET.Element | None = root
     for tag in path:
+        if current is None:
+            return None
         current = current.find(tag)
         if current is None:
             return None
+
+    if current is None:
+        return None
 
     if current.text is None:
         return None

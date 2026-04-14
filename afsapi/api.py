@@ -16,7 +16,6 @@ from defusedxml import ElementTree
 from afsapi.exceptions import (
     FSApiError,
     FSConnectionError,
-    FSNodeBlockedError,
     InvalidPinError,
     InvalidSessionError,
     OutOfRangeError,
@@ -33,7 +32,9 @@ from afsapi.models import (
 from afsapi.nodes import (
     Endpoint,
     ListEndpoint,
+    NavListItem,
     Nodes,
+    PresetsListItem,
     ValidModesListItem,
 )
 from afsapi.response import (
@@ -52,8 +53,8 @@ from .const import MAX_BASS, MAX_PLAY_RATE, MAX_TREBLE, MIN_BASS, MIN_PLAY_RATE,
 if t.TYPE_CHECKING:
     from xml.etree import ElementTree as ET
 
-_T = t.TypeVar("_T")
 V = t.TypeVar("V", bound=str | int)
+ListValue = t.TypeVar("ListValue")
 
 
 DEFAULT_TIMEOUT_IN_SECONDS = 15
@@ -97,8 +98,8 @@ class AFSAPI:
         self.sid: str | None = None
         self.__volume_steps: int | None = None
 
-        self.__modes = None
-        self.__equalisers = None
+        self.__modes: list[PlayerMode] | None = None
+        self.__equalisers: list[Equaliser] | None = None
         self._http_session: aiohttp.ClientSession | None = None
 
         self._current_nav_path: list[int] = []
@@ -210,15 +211,18 @@ class AFSAPI:
     # Generic typed endpoint access
 
     @t.overload
-    async def get(self, endpoint: Endpoint[_T]) -> _T | None: ...
+    async def get(self, endpoint: Endpoint[str]) -> str | None: ...
 
     @t.overload
-    async def get(self, endpoint: ListEndpoint[_T]) -> list[tuple[str, _T]]: ...
+    async def get(self, endpoint: Endpoint[int]) -> int | None: ...
+
+    @t.overload
+    async def get(self, endpoint: ListEndpoint[ListValue]) -> list[tuple[str, ListValue]]: ...
 
     async def get(
         self,
-        endpoint: Endpoint[_T] | ListEndpoint[_T],
-    ) -> _T | list[tuple[str, _T]] | None:
+        endpoint: Endpoint[str] | Endpoint[int] | ListEndpoint[ListValue],
+    ) -> str | int | list[tuple[str, ListValue]] | None:
         """Fetch the current value of a typed FSAPI endpoint.
 
         For scalar endpoints the return type is inferred from the endpoint
@@ -243,14 +247,14 @@ class AFSAPI:
         """
         if isinstance(endpoint, ListEndpoint):
             items = [(key, item) async for key, item in self.handle_list(endpoint.path)]
-            return t.cast("list[tuple[str, _T]]", items)
+            return t.cast("list[tuple[str, ListValue]]", items)
         doc = await self.handle_get(endpoint.path)
         val = extract_text(doc, "value", endpoint.xml_tag)
         if val is None:
             return None
         if endpoint.is_string_type:
-            return val  # type: ignore[return-value]
-        return maybe(val, int)  # type: ignore[return-value]
+            return val
+        return maybe(val, int)
 
     async def _create_session(self) -> str | None:
         self.sid = None
@@ -755,7 +759,7 @@ class AFSAPI:
         # Cache as this never changes
         if self.__equalisers is None:
             equalisers = await self.get(Nodes.equalisers)
-            self.__equalisers = [Equaliser(key=key, **eqinfo) for key, eqinfo in equalisers]
+            self.__equalisers = [Equaliser(key=eqinfo["key"], label=eqinfo["label"]) for _, eqinfo in equalisers]
 
         return self.__equalisers
 
@@ -775,7 +779,7 @@ class AFSAPI:
             return None
 
         for eq in await self.get_equalisers():
-            if eq.key == str(v):
+            if eq.key == v:
                 return eq
 
         msg = f"Could not retrieve equaliser {v} in equaliser list"
@@ -890,7 +894,17 @@ class AFSAPI:
         """Get the modes supported by this device."""
         # Cache as this never changes
         if self.__modes is None:
-            self.__modes = [PlayerMode(key=k, **v) async for k, v in self._get_modes()]
+            self.__modes = [
+                PlayerMode(
+                    id=v["id"],
+                    label=v["label"],
+                    key=v["key"],
+                    selectable=v.get("selectable"),
+                    streamable=v.get("streamable"),
+                    modetype=v.get("modeType"),
+                )
+                async for _, v in self._get_modes()
+            ]
 
         return self.__modes
 
@@ -901,7 +915,7 @@ class AFSAPI:
             return None
 
         for mode in await self.get_modes():
-            if mode.key == str(int_mode):
+            if mode.key == int_mode:
                 return mode
 
         msg = f"Could not retrieve mode {int_mode} in modes list"
@@ -955,7 +969,7 @@ class AFSAPI:
 
     async def nav_list(
         self,
-    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
+    ) -> t.AsyncIterable[tuple[str, NavListItem]]:
         """List items in the current navigation path.
 
         Yields:
@@ -1073,7 +1087,7 @@ class AFSAPI:
 
     async def _get_presets(
         self,
-    ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
+    ) -> t.AsyncIterable[tuple[str, PresetsListItem]]:
         """Iterate over presets with names.
 
         Internal method that yields only presets that have a name field.
@@ -1098,13 +1112,9 @@ class AFSAPI:
 
         def _to_preset(
             key: str,
-            preset_fields: dict[str, str | int | None],
+            preset_fields: PresetsListItem,
         ) -> Preset:
-            if not isinstance(preset_fields["name"], str):
-                msg = f"Invalid type for preset name: {type(preset_fields['name'])}. Expected str."
-                raise FSApiError(msg)
-            type_ = str(preset_fields["type"]) if "type" in preset_fields else None
-            return Preset(int(key), type_, preset_fields["name"])
+            return Preset(int(key), preset_fields.get("type"), preset_fields["name"])
 
         return [_to_preset(key, preset_fields) async for key, preset_fields in self._get_presets()]
 
