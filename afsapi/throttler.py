@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
 
+# pylint: disable-next=too-few-public-methods
 class Throttler:
     """Ensures that a time between executions is taken into account for each wrapped code block.
 
