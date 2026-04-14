@@ -10,15 +10,15 @@ import typing as t
 from dataclasses import dataclass
 from enum import Enum
 
-if t.TYPE_CHECKING:
-    from xml.etree import ElementTree as ET
-
 from .exceptions import (
     FSApiError,
     FSNodeBlockedError,
     FSNotImplementedError,
     OutOfRangeError,
 )
+
+if t.TYPE_CHECKING:
+    from xml.etree import ElementTree as ET
 
 
 class FSAPIStatus(Enum):

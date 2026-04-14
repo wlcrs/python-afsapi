@@ -63,6 +63,7 @@ class Endpoint(t.Generic[_T]):
         return f"Endpoint[{self.xml_tag}]({self.path!r})"
 
 
+# pylint: disable-next=too-few-public-methods
 class ListEndpoint(t.Generic[_T]):
     """Typed FSAPI list endpoint.
 
@@ -137,6 +138,7 @@ class PresetsListItem(TypedDict):
 # ---------------------------------------------------------------------------
 
 
+# pylint: disable-next=too-few-public-methods
 class Nodes:
     """FSAPI node definitions with fully typed endpoints.
 

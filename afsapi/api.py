@@ -8,7 +8,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import typing as t
-from asyncio.exceptions import TimeoutError  # noqa: A004
 
 import aiohttp
 from defusedxml import ElementTree
@@ -74,6 +73,7 @@ API: dict[str, str] = {
 LOGGER = logging.getLogger(__name__)
 
 
+# pylint: disable-next=too-many-public-methods,too-many-instance-attributes
 class AFSAPI:
     """Builds the interface to a Frontier Silicon device."""
 
@@ -142,7 +142,7 @@ class AFSAPI:
                     msg,
                 )
 
-            except (aiohttp.ServerTimeoutError, asyncio.TimeoutError) as err:
+            except (aiohttp.ServerTimeoutError, TimeoutError) as err:
                 msg = f"Did not get a response in time from {fsapi_device_url}"
                 raise FSConnectionError(
                     msg,
@@ -263,6 +263,7 @@ class AFSAPI:
             "sessionId",
         )
 
+    # pylint: disable-next=too-many-arguments
     async def __call(  # noqa: C901
         self,
         path: str,
@@ -308,13 +309,13 @@ class AFSAPI:
                 raise InvalidSessionError(msg) from err
             msg = f"Unexpected HTTP response {err.status}"
             raise FSApiError(msg) from err
-        except aiohttp.ClientConnectionError as err:
-            msg = f"Could not connect to {self.webfsapi_endpoint}"
-            raise FSConnectionError(msg) from err
-        except (aiohttp.ServerTimeoutError, asyncio.TimeoutError, TimeoutError) as err:
+        except (aiohttp.ServerTimeoutError, asyncio.TimeoutError, TimeoutError) as err:  # pylint: disable=bad-except-order
             if not force_new_session and retry_with_session:
                 return await self.__call(path, extra, force_new_session=True)
             msg = f"{self.webfsapi_endpoint} did not respond within {self.timeout} seconds"
+            raise FSConnectionError(msg) from err
+        except aiohttp.ClientConnectionError as err:
+            msg = f"Could not connect to {self.webfsapi_endpoint}"
             raise FSConnectionError(msg) from err
 
         doc = ElementTree.fromstring(await result.text(encoding="utf-8", errors="replace"))
@@ -759,7 +760,7 @@ class AFSAPI:
         # Cache as this never changes
         if self.__equalisers is None:
             equalisers = await self.get(Nodes.equalisers)
-            self.__equalisers = [Equaliser(key=eqinfo["key"], label=eqinfo["label"]) for _, eqinfo in equalisers]
+            self.__equalisers = [Equaliser(key=int(key), label=eqinfo["label"]) for key, eqinfo in equalisers]
 
         return self.__equalisers
 
@@ -898,12 +899,12 @@ class AFSAPI:
                 PlayerMode(
                     id=v["id"],
                     label=v["label"],
-                    key=v["key"],
+                    key=int(k),
                     selectable=v.get("selectable"),
                     streamable=v.get("streamable"),
                     modetype=v.get("modeType"),
                 )
-                async for _, v in self._get_modes()
+                async for k, v in self._get_modes()
             ]
 
         return self.__modes
@@ -1046,7 +1047,7 @@ class AFSAPI:
         return await self.set(Nodes.nav_state, 0)
 
     async def nav_select_folder_via_path(self, path: list[int]) -> bool | None:
-        """Navigates to a target folder from the current folder in as litte steps as necessary."""
+        """Navigates to a target folder from the current folder in as little steps as necessary."""
         result = None
 
         LOGGER.debug("Navigating to %s, currently in %s", path, self._current_nav_path)

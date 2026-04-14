@@ -1,0 +1,114 @@
+---
+name: Linting
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DEFAULT_PYTHON: "3.11"
+
+jobs:
+  codespell:
+    name: codespell
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v6.0.2
+      - name: 🏗 Set up uv
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: 🏗 Install dependencies
+        run: uv sync --frozen --dev
+      - name: 🚀 Check code for common misspellings
+        run: uv run prek run codespell --all-files
+
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v6.0.2
+      - name: 🏗 Set up uv
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: 🏗 Install dependencies
+        run: uv sync --frozen --dev
+      - name: 🚀 Run ruff linter
+        run: uv run ruff check --output-format=github .
+      - name: 🚀 Run ruff formatter
+        run: uv run ruff format --check .
+
+  pre-commit-hooks:
+    name: pre-commit-hooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v6.0.2
+      - name: 🏗 Set up uv
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: 🏗 Install dependencies
+        run: uv sync --frozen --dev
+      - name: 🚀 Check for case conflicts
+        run: uv run prek run check-case-conflict --all-files
+      - name: 🚀 Check that executables have shebangs
+        run: uv run prek run check-executables-have-shebangs --all-files
+      - name: 🚀 Check JSON files
+        run: uv run prek run check-json --all-files
+      - name: 🚀 Check for merge conflicts
+        run: uv run prek run check-merge-conflict --all-files
+      - name: 🚀 Check for broken symlinks
+        run: uv run prek run check-symlinks --all-files
+      - name: 🚀 Check TOML files
+        run: uv run prek run check-toml --all-files
+      - name: 🚀 Check XML files
+        run: uv run prek run check-xml --all-files
+      - name: 🚀 Check YAML files
+        run: uv run prek run check-yaml --all-files
+      - name: 🚀 Detect Private Keys
+        run: uv run prek run detect-private-key --all-files
+      - name: 🚀 Check End of Files
+        run: uv run prek run end-of-file-fixer --all-files
+      - name: 🚀 Trim Trailing Whitespace
+        run: uv run prek run trailing-whitespace --all-files
+
+  pylint:
+    name: pylint
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v6.0.2
+      - name: 🏗 Set up uv
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: 🏗 Install dependencies
+        run: uv sync --frozen --dev
+      - name: 🚀 Run pylint
+        run: uv run prek run pylint --all-files
+
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v6.0.2
+      - name: 🏗 Set up uv
+        uses: astral-sh/setup-uv@v8.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: 🏗 Install dependencies
+        run: uv sync --frozen --dev
+      - name: 🚀 Run yamllint
+        run: uv run yamllint .

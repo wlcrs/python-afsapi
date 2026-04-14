@@ -1,5 +1,7 @@
 """Test of the asynchronous Frontier Silicon interface."""
 
+# pylint: disable=all
+
 import asyncio
 import logging
 import traceback
