@@ -7,7 +7,7 @@ name = "afsapi"
 description = "Asynchronous implementation of the Frontier Silicon API"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "Apache-2.0"
-authors = [{ name = "Krasimir Zhelev", email = "krasimir.zhelev@gmail.com" }]
+authors = [{ name="wlcrs", email="wlcrs@users.noreply.github.com"}, { name = "Krasimir Zhelev", email = "krasimir.zhelev@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = ["aiohttp>=3.9,<4", "defusedxml>=0.7.1"]
 dynamic = ["version"]
@@ -25,7 +25,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/zhelev/python-afsapi.git"
+Homepage = "https://github.com/wlcrs/python-afsapi"
+Repository = "https://github.com/wlcrs/python-afsapi"
+Issues = "https://github.com/wlcrs/python-afsapi/issues"
+Changelog = "https://github.com/wlcrs/python-afsapi/releases"
 
 [dependency-groups]
 dev = [
