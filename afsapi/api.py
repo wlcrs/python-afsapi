@@ -898,8 +898,8 @@ class AFSAPI:
             self.__modes = [
                 PlayerMode(
                     id=v["id"],
-                    label=v["label"],
                     key=int(k),
+                    label=v.get("label"),
                     selectable=v.get("selectable"),
                     streamable=v.get("streamable"),
                     modetype=v.get("modeType"),

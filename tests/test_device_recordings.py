@@ -59,6 +59,30 @@ async def test_get_modes(device_api: AFSAPI) -> None:
     assert all(isinstance(mode, PlayerMode) for mode in modes)
 
 
+@pytest.mark.vcr(record_mode="none")
+async def test_get_modes_empty_closed_label(device_api: AFSAPI) -> None:
+    """Regression test: devices may return a mode with an empty label (e.g. NETWORK)."""
+    modes = await device_api.get_modes()
+    assert isinstance(modes, list)
+    assert all(isinstance(mode, PlayerMode) for mode in modes)
+
+    network_mode = next((m for m in modes if m.id == "NETWORK"), None)
+    assert network_mode is not None
+    assert network_mode.label is None
+
+
+@pytest.mark.vcr(record_mode="none")
+async def test_get_modes_empty_label(device_api: AFSAPI) -> None:
+    """Regression test: devices may return a mode with an empty label (e.g. NETWORK)."""
+    modes = await device_api.get_modes()
+    assert isinstance(modes, list)
+    assert all(isinstance(mode, PlayerMode) for mode in modes)
+
+    network_mode = next((m for m in modes if m.id == "NETWORK"), None)
+    assert network_mode is not None
+    assert network_mode.label is None
+
+
 @pytest.mark.vcr
 async def test_get_equalisers(device_api: AFSAPI) -> None:
     """Record equaliser list call."""

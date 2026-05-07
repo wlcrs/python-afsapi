@@ -75,8 +75,8 @@ class PlayerMode:
     """Information about a player mode supported by the device."""
 
     id: str
-    label: str
     key: int
+    label: str | None = None
     selectable: int | None = None
     streamable: int | None = None
     modetype: int | None = None
