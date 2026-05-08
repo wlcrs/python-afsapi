@@ -8,7 +8,9 @@ Asynchronous Python implementation of the Frontier Silicon API
  - https://github.com/p2baron/fsapi
 
 Runtime dependency:
-    - aiohttp
+
+- aiohttp
+- defusedxml
 
 Development workflow (uv + ruff):
 
