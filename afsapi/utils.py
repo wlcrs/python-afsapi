@@ -20,7 +20,7 @@ def unpack_xml(root: Element | None, key: str) -> str | None:
         The text content of the element, or None if not found.
 
     """
-    if root:
+    if root is not None:
         element = root.find(key)
 
         if element is not None and hasattr(element, "text") and element.text is not None:
