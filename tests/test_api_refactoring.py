@@ -10,12 +10,13 @@ from defusedxml import ElementTree as DefusedET
 
 def test_parse_field_value() -> None:
     """Test the static _parse_field_value method handles different tags properly."""
-    assert AFSAPI._parse_field_value("c8_array", "test") == "test" # noqa: SLF001
-    assert AFSAPI._parse_field_value("array", "another") == "another" # noqa: SLF001
-    assert AFSAPI._parse_field_value("u8", "123") == 123 # noqa: PLR2004, SLF001
-    assert AFSAPI._parse_field_value("s16", "-45") == -45 # noqa: PLR2004, SLF001
-    assert AFSAPI._parse_field_value("e8", "2") == 2 # noqa: PLR2004, SLF001
-    assert AFSAPI._parse_field_value("unknown", "value") == "value" # noqa: SLF001
+    assert AFSAPI._parse_field_value("c8_array", "test") == "test"  # noqa: SLF001
+    assert AFSAPI._parse_field_value("array", "another") == "another"  # noqa: SLF001
+    assert AFSAPI._parse_field_value("u8", "123") == 123  # noqa: PLR2004, SLF001
+    assert AFSAPI._parse_field_value("s16", "-45") == -45  # noqa: PLR2004, SLF001
+    assert AFSAPI._parse_field_value("e8", "2") == 2  # noqa: PLR2004, SLF001
+    assert AFSAPI._parse_field_value("unknown", "value") == "value"  # noqa: SLF001
+
 
 def test_handle_item() -> None:
     """Test the static _handle_item method properly parses an XML item."""
@@ -30,10 +31,11 @@ def test_handle_item() -> None:
     </item>
     """
     element = DefusedET.fromstring(xml_data)
-    key, data = AFSAPI._handle_item(element) # noqa: SLF001
+    key, data = AFSAPI._handle_item(element)  # noqa: SLF001
     assert key == "5"
     assert data["title"] == "Song"
-    assert data["id"] == 999 # noqa: PLR2004
+    assert data["id"] == 999  # noqa: PLR2004
+
 
 @pytest.mark.asyncio
 async def test_get_next_items() -> None:
@@ -42,8 +44,8 @@ async def test_get_next_items() -> None:
 
     async def mock_call(
         path: str,
-        params: dict[str, str | int] | None, # noqa: ARG001
-        **kwargs: dict[str, str | int] | None, # noqa: ARG001
+        params: dict[str, str | int] | None,  # noqa: ARG001
+        **kwargs: dict[str, str | int] | None,  # noqa: ARG001
     ) -> ET.Element:
         if path == "LIST_GET_NEXT/test_list/-1":
             xml_response = """
@@ -54,9 +56,9 @@ async def test_get_next_items() -> None:
             </fsapiResponse>
             """
             return DefusedET.fromstring(xml_response)
-        raise ValueError("Unexpected path") # noqa: TRY003, EM101
+        raise ValueError("Unexpected path")  # noqa: TRY003, EM101
 
     with patch.object(api, "_AFSAPI__call", side_effect=mock_call):
-        items, has_ended = await api._get_next_items("test_list", -1, 10) # noqa: SLF001
+        items, has_ended = await api._get_next_items("test_list", -1, 10)  # noqa: SLF001
         assert len(items) == 1
         assert has_ended is True
