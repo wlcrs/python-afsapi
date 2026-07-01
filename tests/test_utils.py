@@ -18,6 +18,7 @@ def test_unpack_xml_key_not_found() -> None:
 
 def test_unpack_xml_element_has_no_text_attribute() -> None:
     """Test that unpack_xml returns None when element lacks 'text' attribute."""
+
     # The xml.etree.ElementTree.Element always has a 'text' attribute.
     # To test the 'hasattr' safety check, we need to create a subclass of Element
     # that overrides `find` to return a mock element without a 'text' attribute,
@@ -25,8 +26,10 @@ def test_unpack_xml_element_has_no_text_attribute() -> None:
     class MockRootElement(ET.Element):
         def find(self, path: str, namespaces: dict[str, str] | None = None) -> ET.Element | None:
             if path == "key":
+
                 class NoTextElement:
                     pass
+
                 return NoTextElement()  # type: ignore[return-value]
             return super().find(path, namespaces)
 
