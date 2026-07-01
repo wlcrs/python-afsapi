@@ -1,7 +1,6 @@
 """Unit tests for the afsapi.utils module."""
 
 import xml.etree.ElementTree as ET
-from unittest.mock import Mock
 
 from afsapi.utils import unpack_xml
 
@@ -19,12 +18,21 @@ def test_unpack_xml_key_not_found() -> None:
 
 def test_unpack_xml_element_has_no_text_attribute() -> None:
     """Test that unpack_xml returns None when element lacks 'text' attribute."""
-    # Create a mock element that doesn't have a 'text' attribute
-    mock_root = Mock()
-    mock_element = object()  # Object without a 'text' attribute
-    mock_root.find.return_value = mock_element
+    # The xml.etree.ElementTree.Element always has a 'text' attribute.
+    # To test the 'hasattr' safety check, we need to create a subclass of Element
+    # that overrides `find` to return a mock element without a 'text' attribute,
+    # since we cannot mock `find` directly on a native C-extension Element object.
+    class MockRootElement(ET.Element):
+        def find(self, path: str, namespaces: dict[str, str] | None = None) -> ET.Element | None:
+            if path == "key":
+                class NoTextElement:
+                    pass
+                return NoTextElement()  # type: ignore[return-value]
+            return super().find(path, namespaces)
 
-    assert unpack_xml(mock_root, "key") is None
+    root = MockRootElement("root")
+
+    assert unpack_xml(root, "key") is None
 
 
 def test_unpack_xml_element_text_is_none() -> None:
@@ -47,10 +55,10 @@ def test_unpack_xml_success() -> None:
 
 def test_unpack_xml_numeric_text() -> None:
     """Test that unpack_xml casts non-string text to string."""
-    # Some XML libraries or specific mock implementations might set text to non-string
-    mock_root = Mock()
-    mock_child = Mock()
-    mock_child.text = 123
-    mock_root.find.return_value = mock_child
+    # Defusedxml or other parsers might occasionally return non-string content (e.g. CDATA types)
+    # The standard ElementTree text setter expects str or None, so we assign via setattr
+    root = ET.Element("root")
+    child = ET.SubElement(root, "key")
+    child.text = 123  # type: ignore[assignment]
 
-    assert unpack_xml(mock_root, "key") == "123"
+    assert unpack_xml(root, "key") == "123"
