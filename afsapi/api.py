@@ -368,7 +368,95 @@ class AFSAPI:
         status = parse_status(response)
         return status == FSAPIStatus.FS_OK
 
-    async def handle_list(  # noqa: C901
+    @staticmethod
+    def _parse_field_value(tag: str, value: str) -> str | int | None:
+        """Parse field value based on XML tag type.
+
+        Supports all FSAPI field types from fsapi-tools:
+        - c8_array: String (char array)
+        - array: Generic array (string)
+        - u8, u16, u32: Unsigned integers
+        - s8, s16, s32: Signed integers
+        - e8: Enum value (as integer)
+
+        Args:
+            tag: The XML tag name (e.g., 'c8_array', 'u8', 's16').
+            value: The text value to parse.
+
+        Returns:
+            Parsed value as appropriate type, or None if conversion fails.
+
+        """
+        # Normalize tag by removing _array suffix for comparison
+        normalized_tag = tag.replace("_array", "").lower()
+
+        # String types - return as-is
+        if normalized_tag in {"c8", "array"}:
+            return value
+
+        # Integer types - convert to int or return None
+        if normalized_tag in {"u8", "u16", "u32", "s8", "s16", "s32", "e8"}:
+            return maybe(value, int)
+
+        # Unknown type - return as string
+        return value
+
+    @staticmethod
+    def _handle_item(
+        item: ET.Element,
+    ) -> tuple[str, dict[str, str | int | None]]:
+        """Extract key and fields from a list item element.
+
+        Args:
+            item: The item element from the list response.
+
+        Returns:
+            Tuple of (key_str, field_dict) with parsed field values.
+
+        """
+        key = extract_item_key(item, default=-1)
+        fields = extract_item_fields(item)
+
+        value = {}
+        for name, (tag, text) in fields.items():
+            value[name] = AFSAPI._parse_field_value(tag, text)
+
+        return str(key), value
+
+    async def _get_next_items(
+        self,
+        list_name: str,
+        start: int,
+        count: int,
+    ) -> tuple[list[ET.Element], bool]:
+        """Fetch next batch of items from the list.
+
+        Args:
+            list_name: The API list path.
+            start: Starting position in the list.
+            count: Number of items to retrieve.
+
+        Returns:
+            Tuple of (item_elements, has_reached_end).
+
+        """
+        try:
+            doc = await self.__call(
+                f"LIST_GET_NEXT/{list_name}/{start}",
+                {"maxItems": count},
+            )
+        except OutOfRangeError:
+            return [], True
+
+        status = parse_status(doc)
+        if status == FSAPIStatus.FS_OK:
+            items = extract_list_items(doc)
+            has_ended = doc.find("listend") is not None
+            return items, has_ended
+
+        return [], True
+
+    async def handle_list(
         self,
         list_name: str,
     ) -> t.AsyncIterable[tuple[str, dict[str, str | int | None]]]:
@@ -386,99 +474,15 @@ class AFSAPI:
             which return structured data types.
 
         """
-
-        def _parse_field_value(tag: str, value: str) -> str | int | None:
-            """Parse field value based on XML tag type.
-
-            Supports all FSAPI field types from fsapi-tools:
-            - c8_array: String (char array)
-            - array: Generic array (string)
-            - u8, u16, u32: Unsigned integers
-            - s8, s16, s32: Signed integers
-            - e8: Enum value (as integer)
-
-            Args:
-                tag: The XML tag name (e.g., 'c8_array', 'u8', 's16').
-                value: The text value to parse.
-
-            Returns:
-                Parsed value as appropriate type, or None if conversion fails.
-
-            """
-            # Normalize tag by removing _array suffix for comparison
-            normalized_tag = tag.replace("_array", "").lower()
-
-            # String types - return as-is
-            if normalized_tag in {"c8", "array"}:
-                return value
-
-            # Integer types - convert to int or return None
-            if normalized_tag in {"u8", "u16", "u32", "s8", "s16", "s32", "e8"}:
-                return maybe(value, int)
-
-            # Unknown type - return as string
-            return value
-
-        def _handle_item(
-            item: ET.Element,
-        ) -> tuple[str, dict[str, str | int | None]]:
-            """Extract key and fields from a list item element.
-
-            Args:
-                item: The item element from the list response.
-
-            Returns:
-                Tuple of (key_str, field_dict) with parsed field values.
-
-            """
-            key = extract_item_key(item, default=-1)
-            fields = extract_item_fields(item)
-
-            value = {}
-            for name, (tag, text) in fields.items():
-                value[name] = _parse_field_value(tag, text)
-
-            return str(key), value
-
-        async def _get_next_items(
-            start: int,
-            count: int,
-        ) -> tuple[list[ET.Element], bool]:
-            """Fetch next batch of items from the list.
-
-            Args:
-                start: Starting position in the list.
-                count: Number of items to retrieve.
-
-            Returns:
-                Tuple of (item_elements, has_reached_end).
-
-            """
-            try:
-                doc = await self.__call(
-                    f"LIST_GET_NEXT/{list_name}/{start}",
-                    {"maxItems": count},
-                )
-            except OutOfRangeError:
-                return [], True
-
-            status = parse_status(doc)
-            if status == FSAPIStatus.FS_OK:
-                items = extract_list_items(doc)
-                has_ended = doc.find("listend") is not None
-                return items, has_ended
-
-            return [], True
-
         start = -1
         count = 50  # asking for more items gives a bigger chance on FS_NODE_BLOCKED errors on subsequent requests
         has_next = True
 
         while has_next:
-            items, end_reached = await _get_next_items(start, count)
+            items, end_reached = await self._get_next_items(list_name, start, count)
 
             for item in items:
-                yield _handle_item(item)
+                yield self._handle_item(item)
 
             start += count
 
