@@ -40,7 +40,11 @@ async def test_get_next_items() -> None:
     """Test the _get_next_items method reads and parses list nodes."""
     api = AFSAPI("http://mock", "1234")
 
-    async def mock_call(path: str, params: dict, **kwargs: dict) -> ET.Element: # noqa: ARG001
+    async def mock_call(
+        path: str,
+        params: dict[str, str | int] | None, # noqa: ARG001
+        **kwargs: dict[str, str | int] | None, # noqa: ARG001
+    ) -> ET.Element:
         if path == "LIST_GET_NEXT/test_list/-1":
             xml_response = """
             <fsapiResponse>
