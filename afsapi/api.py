@@ -293,7 +293,12 @@ class AFSAPI:
                     params=params,
                 )
 
-            LOGGER.debug("Called %s with %s: %s", path, params, result.status)
+            sanitized_params = params.copy()
+            for key in ["pin", "sid"]:
+                if key in sanitized_params:
+                    sanitized_params[key] = "****"
+
+            LOGGER.debug("Called %s with %s: %s", path, sanitized_params, result.status)
             result.raise_for_status()
 
         except aiohttp.ClientResponseError as err:
