@@ -4,7 +4,6 @@
 
 import asyncio
 import logging
-import traceback
 
 from afsapi import AFSAPI
 
@@ -31,7 +30,7 @@ async def test_sys() -> None:
                 print(f"preset: {preset}")
 
     except Exception:
-        logger.exception(traceback.format_exc())
+        logger.exception("An error occurred")
 
 
 async def test_volume() -> None:
@@ -63,7 +62,7 @@ async def test_volume() -> None:
             power = await afsapi.get_power()
             print(f"get_power: {power}")
     except Exception:
-        logger.exception(traceback.format_exc())
+        logger.exception("An error occurred")
 
 
 async def test_info() -> None:
@@ -102,7 +101,7 @@ async def test_info() -> None:
             power = await afsapi.get_power()
             print(f"Power on: {power}")
     except Exception:
-        logger.exception(traceback.format_exc())
+        logger.exception("An error occurred")
 
 
 async def test_play() -> None:
@@ -125,7 +124,7 @@ async def test_play() -> None:
             print(f"rewind: {rewind_result}")
 
     except Exception:
-        logger.exception(traceback.format_exc())
+        logger.exception("An error occurred")
 
 
 loop = asyncio.new_event_loop()
