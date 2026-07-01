@@ -246,6 +246,31 @@ def extract_item_key(item: ET.Element, default: int = -1) -> int:
         return default
 
 
+def _parse_field_element(field_elem: ET.Element) -> tuple[str, tuple[str, str]] | None:
+    """Parse a single field element from a list item.
+
+    Args:
+        field_elem: The field element to parse.
+
+    Returns:
+        Tuple of (name, (tag, text)) if valid, None otherwise.
+
+    """
+    name = field_elem.attrib.get("name")
+    if name is None:
+        return None
+
+    if len(field_elem) == 0 or field_elem[0].text is None:
+        return None
+
+    tag = field_elem[0].tag
+    text = field_elem[0].text.strip()
+    if not text:
+        return None
+
+    return name, (tag, text)
+
+
 def extract_item_fields(item: ET.Element) -> dict[str, tuple[str, str]]:
     """Extract all field elements from list item.
 
@@ -267,16 +292,8 @@ def extract_item_fields(item: ET.Element) -> dict[str, tuple[str, str]]:
     """
     fields = {}
     for field_elem in item.findall("field"):
-        name = field_elem.attrib.get("name")
-        if name is None:
-            continue
-
-        if len(field_elem) == 0 or field_elem[0].text is None:
-            continue
-
-        tag = field_elem[0].tag
-        text = field_elem[0].text.strip()
-        if text:
-            fields[name] = (tag, text)
+        if (parsed := _parse_field_element(field_elem)) is not None:
+            name, value = parsed
+            fields[name] = value
 
     return fields
