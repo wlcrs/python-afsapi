@@ -292,8 +292,7 @@ def extract_item_fields(item: ET.Element) -> dict[str, tuple[str, str]]:
     """
     fields = {}
     for field_elem in item.findall("field"):
-        parsed = _parse_field_element(field_elem)
-        if parsed is not None:
+        if (parsed := _parse_field_element(field_elem)) is not None:
             name, value = parsed
             fields[name] = value
 
