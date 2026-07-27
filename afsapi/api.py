@@ -490,6 +490,20 @@ class AFSAPI:
                 has_next = False
 
     # sys
+    async def get_dst(self) -> bool | None:
+        """Get the Daylight Savings Time (DST) setting of the device."""
+        dst = await self.get(Nodes.dst)
+        if dst is None:
+            return None
+        return bool(dst)
+
+    async def set_dst(
+        self,
+        value: bool = False,  # noqa: FBT001, FBT002
+    ) -> bool | None:
+        """Set the Daylight Savings Time (DST) setting of the device."""
+        return await self.set(Nodes.dst, int(value))
+
     async def get_friendly_name(self) -> str | None:
         """Get the friendly name of the device."""
         return await self.get(Nodes.friendly_name)

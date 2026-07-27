@@ -98,7 +98,6 @@ class EqualisersListItem(TypedDict):
     key: int
     label: str
 
-
 class ValidModesListItem(TypedDict):
     """Valid modes list item from ``netRemote.sys.caps.validModes``."""
 
@@ -166,6 +165,9 @@ class Nodes:
     friendly_name: Endpoint[str] = Endpoint("netRemote.sys.info.friendlyName", "c8_array")
     radio_id: Endpoint[str] = Endpoint("netRemote.sys.info.radioId", "c8_array")
     version: Endpoint[str] = Endpoint("netRemote.sys.info.version", "c8_array")
+
+    # --- sys.clock ----------------------------------------------------------
+    dst: Endpoint[int] = Endpoint("netRemote.sys.clock.dst", "u8")
 
     # --- sys.caps ----------------------------------------------------------
     valid_modes: ListEndpoint[ValidModesListItem] = ListEndpoint("netRemote.sys.caps.validModes")
