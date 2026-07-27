@@ -98,6 +98,7 @@ class EqualisersListItem(TypedDict):
     key: int
     label: str
 
+
 class ValidModesListItem(TypedDict):
     """Valid modes list item from ``netRemote.sys.caps.validModes``."""
 
