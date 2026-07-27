@@ -144,6 +144,7 @@ async def test_get_sleep(device_api: AFSAPI) -> None:
     sleep = await device_api.get_sleep()
     assert sleep is None or isinstance(sleep, int)
 
+
 @pytest.mark.vcr
 async def test_get_dst(device_api: AFSAPI) -> None:
     """Record DST read call."""
