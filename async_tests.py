@@ -29,6 +29,9 @@ async def test_sys() -> None:
             for preset in await afsapi.get_presets():
                 print(f"preset: {preset}")
 
+            dst_set = await afsapi.get_dst()
+            print(f"DST: {dst_set}")
+
     except Exception:
         logger.exception("An error occurred")
 

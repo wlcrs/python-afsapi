@@ -167,6 +167,9 @@ class Nodes:
     radio_id: Endpoint[str] = Endpoint("netRemote.sys.info.radioId", "c8_array")
     version: Endpoint[str] = Endpoint("netRemote.sys.info.version", "c8_array")
 
+    # --- sys.clock ----------------------------------------------------------
+    dst: Endpoint[int] = Endpoint("netRemote.sys.clock.dst", "u8")
+
     # --- sys.caps ----------------------------------------------------------
     valid_modes: ListEndpoint[ValidModesListItem] = ListEndpoint("netRemote.sys.caps.validModes")
     equalisers: ListEndpoint[EqualisersListItem] = ListEndpoint("netRemote.sys.caps.eqPresets")
