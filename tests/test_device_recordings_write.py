@@ -32,6 +32,21 @@ async def test_set_power_roundtrip(device_api: AFSAPI) -> None:
         if original is not None and original != target:
             await device_api.set_power(original)
 
+@pytest.mark.vcr
+async def test_set_dst_roundtrip(device_api: AFSAPI) -> None:
+    """Record DST write call and restore original state."""
+    original = await device_api.get_dst()
+    target = not original if original is not None else True
+
+    result = await device_api.set_dst(target)
+    assert result in {True, False, None}
+
+    try:
+        current = await device_api.get_dst()
+        assert current is None or isinstance(current, bool)
+    finally:
+        if original is not None and original != target:
+            await device_api.set_dst(original)
 
 @pytest.mark.vcr
 async def test_set_volume_roundtrip(device_api: AFSAPI) -> None:
