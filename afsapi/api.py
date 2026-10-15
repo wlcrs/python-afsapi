@@ -15,6 +15,7 @@ from defusedxml import ElementTree
 from afsapi.exceptions import (
     FSApiError,
     FSConnectionError,
+    FSNodeBlockedError,
     InvalidPinError,
     InvalidSessionError,
     OutOfRangeError,
@@ -63,6 +64,10 @@ TIME_AFTER_SET_CALLS_IN_SECONDS = 0.3
 TIME_AFTER_SLOW_SET_CALLS_IN_SECONDS = 1.0
 HTTP_STATUS_FORBIDDEN = 403
 HTTP_STATUS_NOT_FOUND = 404
+
+NAV_LIST_MAX_ATTEMPTS = 8
+NAV_LIST_RETRY_DELAY_IN_SECONDS = 1.0
+NAV_LIST_LOADING_ITEM_TYPE = 255
 
 # Backward-compatible path lookup dict.
 # New code should use typed ``Nodes.*`` attributes + ``AFSAPI.get()`` instead.
@@ -228,7 +233,10 @@ class AFSAPI:
         For scalar endpoints the return type is inferred from the endpoint
         descriptor (``Endpoint[int]`` → ``int | None``, ``Endpoint[str]``
         → ``str | None``).  For list endpoints the method collects all items
-        and returns a ``list[tuple[str, T]]``.
+        and returns a ``list[tuple[str, T]]``. Navigation lists allow up to
+        8 complete read attempts for temporary blocked reads and type-255
+        loading entries, with at most 7 one-second sleeps in addition to
+        HTTP request/read time.
 
         Args:
             endpoint: A typed endpoint descriptor from :class:`Nodes`.
@@ -246,7 +254,10 @@ class AFSAPI:
 
         """
         if isinstance(endpoint, ListEndpoint):
-            items = [(key, item) async for key, item in self.handle_list(endpoint.path)]
+            if endpoint.path == Nodes.nav_list.path:
+                items = await self._get_ready_nav_list()
+            else:
+                items = [(key, item) async for key, item in self.handle_list(endpoint.path)]
             return t.cast("list[tuple[str, ListValue]]", items)
         doc = await self.handle_get(endpoint.path)
         val = extract_text(doc, "value", endpoint.xml_tag)
@@ -255,6 +266,24 @@ class AFSAPI:
         if endpoint.is_string_type:
             return val
         return maybe(val, int)
+
+    async def _get_ready_nav_list(self) -> list[tuple[str, dict[str, str | int | None]]]:
+        """Collect a complete navigation list, retrying temporary blocked reads."""
+        attempt = 1
+        while True:
+            try:
+                items = [item async for item in self.handle_list(Nodes.nav_list.path)]
+            except FSNodeBlockedError:
+                if attempt >= NAV_LIST_MAX_ATTEMPTS:
+                    raise
+            else:
+                if not any(item.get("type") == NAV_LIST_LOADING_ITEM_TYPE for _, item in items):
+                    return items
+                if attempt >= NAV_LIST_MAX_ATTEMPTS:
+                    msg = "Navigation list is still loading (type 255)"
+                    raise FSNodeBlockedError(msg)
+            attempt += 1
+            await asyncio.sleep(NAV_LIST_RETRY_DELAY_IN_SECONDS)
 
     async def _create_session(self) -> str | None:
         self.sid = None
@@ -995,6 +1024,11 @@ class AFSAPI:
         self,
     ) -> t.AsyncIterable[tuple[str, NavListItem]]:
         """List items in the current navigation path.
+
+        Collects the full list before yielding. Temporary blocked reads and
+        type-255 loading entries allow up to 8 complete read attempts with
+        at most 7 one-second sleeps, plus HTTP request/read time. Navigation
+        enable/SET commands are not retried by this readiness policy.
 
         Yields:
             Tuples of (item_key, field_dict) for each item in the current directory.

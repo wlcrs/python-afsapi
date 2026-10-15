@@ -53,6 +53,31 @@ uv run pytest -q
 Usage
 =====
 
+Navigation list readiness
+-------------------------
+
+`nav_list()` and `get(Nodes.nav_list)` collect the complete directory before
+returning items. Some radios need additional time after enabling navigation or
+changing folders: list reads can raise `FSNodeBlockedError` or return an
+`FS_OK` loading placeholder with item type `255` (sometimes without a name).
+These two conditions trigger up to **8 complete read attempts**, separated by
+**1 second**: at most **7 seconds of added retry sleeps**, not an overall
+wall-clock timeout. HTTP request timeouts and time spent reading all pages are
+additional. A successful first read incurs no extra delay.
+
+Each retry starts reading from the first page and discards the incomplete
+attempt; partial results are never yielded or duplicated. If the last read is
+still blocked, its `FSNodeBlockedError` is propagated. A persistent loading
+placeholder raises `FSNodeBlockedError` with a loading-specific message.
+Other errors and cancellation propagate without readiness retries. Navigation
+SET commands, other endpoints, and the low-level `handle_list()` iterator keep
+their existing behavior; no navigation state changes are replayed by this retry
+policy. A genuinely empty list remains an empty list.
+
+This handles delayed readiness, not changes made by other clients to the
+radio's global navigation state, nor pagination/cadence limits on very large
+station directories.
+
 ```python
 import asyncio
 from afsapi import AFSAPI
